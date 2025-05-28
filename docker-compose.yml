@@ -1,0 +1,77 @@
+version: "3.8"
+
+networks:
+  redisn:
+    driver: bridge
+
+services:
+  # Servicio para el recolector de datos de Waze
+  waze-data-collector:
+    build: ./waze-data-collector
+    container_name: waze_data_collector
+    networks:
+      - redisn
+    volumes:
+      - ./waze-data-collector:/app
+
+  # Servicio para Redis
+  redis:
+    image: bitnami/redis:latest
+    restart: always
+    container_name: redis_cache
+    environment:
+      - ALLOW_EMPTY_PASSWORD=yes
+      - REDIS_EXTRA_FLAGS=--maxmemory 2mb --maxmemory-policy allkeys-random
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data_1:/bitnami/redis/data
+    networks:
+      - redisn
+    depends_on:
+      - waze-data-collector
+
+  # Servicio para la interfaz de administración de Redis
+  redis-admin:
+    image: redislabs/redisinsight:latest
+    restart: always
+    container_name: redis_admin
+    volumes:
+      - redis-insight:/data
+    ports:
+      - "5540:5540"
+    networks:
+      - redisn
+    depends_on:
+      - redis
+
+  # Servicio para el generador de tráfico
+  traffic-generator:
+    build: ./traffic-generator
+    container_name: traffic_generator
+    depends_on:
+      - waze-data-collector
+      - redis
+    networks:
+      - redisn
+    restart: always
+
+  # Servicio para el sistema de caché
+  query-cache:
+    build: ./query-cache
+    container_name: query_cache
+    restart: always
+    ports:
+      - "5000:5000"
+    networks:
+      - redisn
+    volumes:
+      - ./query-cache:/app
+    depends_on:
+      - redis
+      - waze-data-collector
+
+volumes:
+  redis_data_1:
+    driver: local
+  redis-insight:
