@@ -34,6 +34,9 @@ WORKDIR /app
 COPY requirements.txt .   
 COPY scraper.py .
 
+# Configurar pip para usar un mirror más confiable
+#RUN pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
+
 # Instalar dependencias de Python
 RUN pip install --no-cache-dir -r requirements.txt
 

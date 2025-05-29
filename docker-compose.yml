@@ -13,39 +13,27 @@ services:
       - redisn
     volumes:
       - ./waze-data-collector:/app
-    depends_on:
-      - mongo
-
-  # Servicio para MongoDB
-  mongo:
-    image: mongo:latest
-    container_name: mongo_waze
-    ports:
-      - "27017:27017"
     environment:
-      - MONGO_INITDB_ROOT_USERNAME=admin
-      - MONGO_INITDB_ROOT_PASSWORD=admin123
-    volumes:
-      - mongo_data:/data/db
+      - ELASTICSEARCH_URL=https://my-elasticsearch-project-f2727a.es.us-east-1.aws.elastic.cloud:443
+      - ELASTICSEARCH_API_KEY=OVlYTEdaY0JBMURWU1pMNHZEXzM6ejBwVFFLcklSelk3UFNSSXdDajZ0QQ==
+    #depends_on:
+      #- data-storage
+
+  # Servicio para el almacenamiento de datos
+  data-storage:
+    build: ./data-storage
+    container_name: data_storage
+    ports:
+      - "5001:5001"
     networks:
       - redisn
-
-  # Servicio para la interfaz de administración de MongoDB
-  mongo-express:
-    image: mongo-express:latest
-    container_name: mongo_express_waze
-    ports:
-      - "8081:8081"
     environment:
-      - ME_CONFIG_MONGODB_ADMINUSERNAME=admin
-      - ME_CONFIG_MONGODB_ADMINPASSWORD=admin123
-      - ME_CONFIG_MONGODB_SERVER=mongo
-    networks:
-      - redisn
+      - ELASTICSEARCH_URL=https://my-elasticsearch-project-f2727a.es.us-east-1.aws.elastic.cloud:443
+      - ELASTICSEARCH_API_KEY=OVlYTEdaY0JBMURWU1pMNHZEXzM6ejBwVFFLcklSelk3UFNSSXdDajZ0QQ==
     depends_on:
-      - mongo
+      - waze-data-collector
 
-  # Servicio para Redis
+  # Servicio para Redis (Cache)
   redis:
     image: bitnami/redis:latest
     restart: always
@@ -73,19 +61,23 @@ services:
       - redisn
     depends_on:
       - redis
+      - waze-data-collector
 
-  # Servicio para el generador de tráfico
+  # Servicio para el generador de tráfico (Processing)
   traffic-generator:
     build: ./traffic-generator
     container_name: traffic_generator
     depends_on:
-      - mongo
       - redis
+      - waze-data-collector
     networks:
       - redisn
     restart: always
+    environment:
+      - ELASTICSEARCH_URL=https://my-elasticsearch-project-f2727a.es.us-east-1.aws.elastic.cloud:443
+      - ELASTICSEARCH_API_KEY=OVlYTEdaY0JBMURWU1pMNHZEXzM6ejBwVFFLcklSelk3UFNSSXdDajZ0QQ==
 
-  # Servicio para el sistema de caché
+  # Servicio para el sistema de caché (Filtering)
   query-cache:
     build: ./query-cache
     container_name: query_cache
@@ -98,11 +90,27 @@ services:
       - ./query-cache:/app
     depends_on:
       - redis
-      - mongo
+      - traffic-generator
+    environment:
+      - ELASTICSEARCH_URL=https://my-elasticsearch-project-f2727a.es.us-east-1.aws.elastic.cloud:443
+      - ELASTICSEARCH_API_KEY=OVlYTEdaY0JBMURWU1pMNHZEXzM6ejBwVFFLcklSelk3UFNSSXdDajZ0QQ==
+
+  # Servicio para Apache Pig (Data Processing)
+  # pig:
+  #   build: ./pig
+  #   container_name: pig
+  #   volumes:
+  #     - ./scripts:/pig-scripts
+  #   entrypoint: ["pig", "-x", "local", "/pig-scripts/process_waze.pig"]
+  #   networks:
+  #     - redisn
+  #   depends_on:
+  #     - waze-data-collector
+  #   environment:
+  #     - ELASTICSEARCH_URL=https://my-elasticsearch-project-f2727a.es.us-east-1.aws.elastic.cloud:443
+  #     - ELASTICSEARCH_API_KEY=OVlYTEdaY0JBMURWU1pMNHZEXzM6ejBwVFFLcklSelk3UFNSSXdDajZ0QQ==
 
 volumes:
-  mongo_data:
-    driver: local
   redis_data_1:
     driver: local
   redis-insight:

@@ -2,4 +2,4 @@ selenium
 selenium-wire
 pyautogui
 blinker==1.4
-pymongo
+elasticsearch==8.11.1

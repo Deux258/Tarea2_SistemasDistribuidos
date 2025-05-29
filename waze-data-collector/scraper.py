@@ -6,7 +6,8 @@ from seleniumwire import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
-from pymongo import MongoClient
+from elasticsearch import Elasticsearch
+from datetime import datetime
 
 # Configuración para el modo de visualización
 USE_PYAUTOGUI = os.environ.get("DISPLAY") is not None
@@ -18,6 +19,11 @@ WAZE_MAP_URL = "https://www.waze.com/es-419/live-map/"
 CHROMEDRIVER_PATH = "/usr/bin/chromedriver"
 PIXELS_PER_MOVE = 300
 MAX_EVENTOS = 10000
+
+# Configuración de Elasticsearch
+ELASTICSEARCH_URL = "https://my-elasticsearch-project-f2727a.es.us-east-1.aws.elastic.cloud:443"
+ELASTICSEARCH_API_KEY = "OVlYTEdaY0JBMURWU1pMNHZEXzM6ejBwVFFLcklSelk3UFNSSXdDajZ0QQ=="
+ELASTICSEARCH_INDEX = "waze_events"
 
 # Direcciones de movimiento del mapa
 DIRECCIONES_MAPA = {
@@ -71,9 +77,9 @@ def configurar_navegador():
     service = Service(CHROMEDRIVER_PATH)
     return webdriver.Chrome(service=service, options=options)
 
-def guardar_eventos_mongodb(eventos):
+def guardar_eventos_elasticsearch(eventos):
     """
-    Guarda los eventos recolectados en la base de datos MongoDB.
+    Guarda los eventos recolectados en Elasticsearch.
     
     Args:
         eventos: Lista de eventos a guardar
@@ -83,15 +89,39 @@ def guardar_eventos_mongodb(eventos):
         return
 
     try:
-        print("💾 Conectando a MongoDB...")
-        client = MongoClient("mongodb://admin:admin123@data-storage:27017/")
-        db = client["waze_db"]
-        collection = db["eventos"]
+        print("💾 Conectando a Elasticsearch...")
+        es_client = Elasticsearch(
+            ELASTICSEARCH_URL,
+            api_key=ELASTICSEARCH_API_KEY,
+            verify_certs=False  # Solo para desarrollo
+        )
 
-        result = collection.insert_many(eventos)
-        print(f"\n✅ Se insertaron {len(result.inserted_ids)} eventos en MongoDB.")
+        if not es_client.ping():
+            raise Exception("No se pudo conectar a Elasticsearch")
+
+        # Preparar datos para bulk insert
+        bulk_data = []
+        for evento in eventos:
+            # Convertir timestamp a formato ISO
+            if 'pubMillis' in evento:
+                evento['timestamp'] = datetime.fromtimestamp(evento['pubMillis']/1000).isoformat()
+            
+            # Agregar operación de índice
+            bulk_data.append({"index": {"_index": ELASTICSEARCH_INDEX}})
+            bulk_data.append(evento)
+
+        # Realizar bulk insert
+        if bulk_data:
+            response = es_client.bulk(body=bulk_data)
+            if response.get('errors'):
+                print("⚠️ Algunos documentos no se insertaron correctamente.")
+            else:
+                print(f"✅ Se insertaron {len(eventos)} eventos en Elasticsearch.")
+        else:
+            print("⚠️ No hay eventos para guardar.")
+
     except Exception as e:
-        print(f"❌ Error al guardar en MongoDB: {e}")
+        print(f"❌ Error al guardar en Elasticsearch: {e}")
 
 def recolectar_eventos():
     """
@@ -157,7 +187,7 @@ def recolectar_eventos():
             print(f"⚠️ Error al mover el mapa: {e}")
 
     driver.quit()
-    guardar_eventos_mongodb(eventos)
+    guardar_eventos_elasticsearch(eventos)
     print("✅ Navegación finalizada.")
 
 if __name__ == "__main__":

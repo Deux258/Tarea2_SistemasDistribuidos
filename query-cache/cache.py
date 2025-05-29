@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
 import redis
-from pymongo import MongoClient
+from elasticsearch import Elasticsearch
 import os
 import json
 from datetime import datetime
@@ -16,43 +16,44 @@ redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=Tr
 # Texto de prueba para simular carga en el caché
 PAYLOAD_TEST = "x" * 50_000
 
-# Configuración de MongoDB
-MONGO_URI = "mongodb://admin:admin123@mongo:27017/"
-MONGO_DB = "waze_db"
-MONGO_COLLECTION = "eventos"
+# Configuración de Elasticsearch
+ELASTICSEARCH_URL = os.getenv('ELASTICSEARCH_URL', 'https://my-elasticsearch-project-f2727a.es.us-east-1.aws.elastic.cloud:443')
+ELASTICSEARCH_API_KEY = os.getenv('ELASTICSEARCH_API_KEY', 'OVlYTEdaY0JBMURWU1pMNHZEXzM6ejBwVFFLcklSelk3UFNSSXdDajZ0QQ==')
+ELASTICSEARCH_INDEX = "waze_events"
 
-def conectar_mongodb():
+def conectar_elasticsearch():
     """
-    Establece la conexión con MongoDB y retorna el cliente configurado.
+    Establece la conexión con Elasticsearch y retorna el cliente configurado.
     
     Returns:
-        pymongo.MongoClient: Cliente de MongoDB configurado
+        elasticsearch.Elasticsearch: Cliente de Elasticsearch configurado
     """
     try:
-        client = MongoClient(MONGO_URI)
-        db = client[MONGO_DB]
-        if db.command("ping"):
-            print("✅ Conexión a MongoDB exitosa.")
-            return client
+        es_client = Elasticsearch(
+            ELASTICSEARCH_URL,
+            api_key=ELASTICSEARCH_API_KEY,
+            verify_certs=False  # Solo para desarrollo
+        )
+        if es_client.ping():
+            print("✅ Conexión a Elasticsearch exitosa.")
+            return es_client
         else:
-            raise Exception("No se pudo conectar a MongoDB")
+            raise Exception("No se pudo conectar a Elasticsearch")
     except Exception as e:
-        print(f"❌ Error al conectar con MongoDB: {e}")
+        print(f"❌ Error al conectar con Elasticsearch: {e}")
         raise
 
-# Inicializar conexión a MongoDB
-mongo_client = conectar_mongodb()
-db = mongo_client[MONGO_DB]
-collection = db[MONGO_COLLECTION]
+# Inicializar conexión a Elasticsearch
+es_client = conectar_elasticsearch()
 
 @app.route('/events', methods=['GET'])
 def obtener_evento():
     """
     Endpoint para obtener un evento específico.
-    Primero busca en el caché, si no está disponible, lo busca en MongoDB.
+    Primero busca en el caché, si no está disponible, lo busca en Elasticsearch.
     
     Returns:
-        JSON: Datos del evento y fuente (caché o MongoDB)
+        JSON: Datos del evento y fuente (caché o Elasticsearch)
     """
     event_id = request.args.get('id')
     if not event_id:
@@ -68,23 +69,22 @@ def obtener_evento():
             "data": json.loads(cached_data)
         })
 
-    # Si no está en caché, buscar en MongoDB
+    # Si no está en caché, buscar en Elasticsearch
     try:
-        result = collection.find_one({"_id": event_id})
-        if result:
-            # Convertir ObjectId a string para serialización JSON
-            result["_id"] = str(result["_id"])
+        result = es_client.get(index=ELASTICSEARCH_INDEX, id=event_id)
+        if result and result['found']:
+            event_data = result['_source']
             # Agregar payload de prueba y guardar en caché
-            result["extra_payload"] = PAYLOAD_TEST
-            redis_client.set(cache_key, json.dumps(result))
+            event_data["extra_payload"] = PAYLOAD_TEST
+            redis_client.set(cache_key, json.dumps(event_data))
             return jsonify({
-                "source": "mongodb",
-                "data": result
+                "source": "elasticsearch",
+                "data": event_data
             })
         else:
             return jsonify({"error": "No se encontró el evento"}), 404
     except Exception as e:
-        print(f"❌ Error al buscar en MongoDB: {e}")
+        print(f"❌ Error al buscar en Elasticsearch: {e}")
         return jsonify({"error": str(e)}), 500
 
 @app.route('/events/ids', methods=['GET'])
@@ -97,12 +97,21 @@ def obtener_todos_ids():
         JSON: Lista de IDs de eventos
     """
     try:
-        # Realizar búsqueda en MongoDB
-        cursor = collection.find({}, {"_id": 1}).limit(10000)
-        id_list = [str(doc["_id"]) for doc in cursor]
+        # Realizar búsqueda en Elasticsearch
+        response = es_client.search(
+            index=ELASTICSEARCH_INDEX,
+            body={
+                "size": 10000,
+                "_source": False,
+                "query": {
+                    "match_all": {}
+                }
+            }
+        )
+        id_list = [hit['_id'] for hit in response['hits']['hits']]
         return jsonify({"ids": id_list})
     except Exception as e:
-        print(f"❌ Error al obtener IDs de MongoDB: {e}")
+        print(f"❌ Error al obtener IDs de Elasticsearch: {e}")
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
