@@ -48,15 +48,6 @@ EXPONENTIAL_SCALE_INCREMENT = 0.3
 current_exponential_scale = EXPONENTIAL_SCALE_MIN
 
 def obtener_eventos_aleatorios(tamaño_muestra=100):
-    """
-    Obtiene una muestra aleatoria de IDs de eventos desde el sistema de caché.
-    
-    Args:
-        tamaño_muestra: Número de IDs a obtener
-        
-    Returns:
-        list: Lista de IDs de eventos seleccionados
-    """
     try:
         response = requests.get(EVENT_IDS_URL)
         if response.status_code == 200:
@@ -71,19 +62,6 @@ def obtener_eventos_aleatorios(tamaño_muestra=100):
 
 def generar_plan_solicitudes(ids_seleccionados, min_repeticiones=1, max_repeticiones=3, 
                            longitud_objetivo=60, num_ids_frecuentes=10):
-    """
-    Genera un plan de solicitudes con una mezcla de IDs frecuentes y no frecuentes.
-    
-    Args:
-        ids_seleccionados: Lista de IDs disponibles
-        min_repeticiones: Mínimo número de repeticiones por ID
-        max_repeticiones: Máximo número de repeticiones por ID
-        longitud_objetivo: Longitud deseada del plan
-        num_ids_frecuentes: Número de IDs que serán frecuentes
-        
-    Returns:
-        list: Plan de solicitudes generado
-    """
     plan_solicitudes = []
 
     # Seleccionar IDs frecuentes y no frecuentes
@@ -109,12 +87,6 @@ def generar_plan_solicitudes(ids_seleccionados, min_repeticiones=1, max_repetici
     return plan_solicitudes[:longitud_objetivo]
 
 def procesar_solicitud(event_id):
-    """
-    Procesa una solicitud individual y actualiza las estadísticas.
-    
-    Args:
-        event_id: ID del evento a consultar
-    """
     global cache_hits, cache_misses, total_requests
 
     event_access_count[event_id] += 1
@@ -160,9 +132,6 @@ def procesar_solicitud(event_id):
     return elapsed_time
 
 def generar_trafico():
-    """
-    Función principal que coordina la generación de tráfico.
-    """
     global current_exponential_scale
 
     # Obtener IDs de eventos

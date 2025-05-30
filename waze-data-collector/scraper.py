@@ -28,16 +28,6 @@ DIRECCIONES_MAPA = {
 }
 
 def analizar_solicitudes_red(driver, eventos):
-    """
-    Analiza las solicitudes de red para extraer eventos de tráfico de Waze.
-    
-    Args:
-        driver: Instancia del navegador Chrome
-        eventos: Lista donde se almacenarán los eventos encontrados
-    
-    Returns:
-        bool: True si se alcanzó el límite de eventos, False en caso contrario
-    """
     print("📡 Analizando solicitudes de red...")
     for request in driver.requests:
         if request.response and request.url.split('?')[0].endswith("georss"):
@@ -49,19 +39,13 @@ def analizar_solicitudes_red(driver, eventos):
                         evento.pop('comments', None)
                         eventos.append(evento)
                         if len(eventos) >= MAX_EVENTOS:
-                            print("🚨 Se alcanzó el límite de 10,000 eventos.")
+                            print("🚨 Se alcanzó el límite de 10 mil eventos.")
                             return True
             except Exception as e:
                 print(f"⚠️ Error al procesar respuesta: {e}")
     return False
 
 def configurar_navegador():
-    """
-    Configura y retorna una instancia del navegador Chrome con las opciones necesarias.
-    
-    Returns:
-        webdriver.Chrome: Instancia configurada del navegador
-    """
     options = Options()
     options.add_argument("--headless")
     options.add_argument("--no-sandbox")
@@ -72,12 +56,6 @@ def configurar_navegador():
     return webdriver.Chrome(service=service, options=options)
 
 def guardar_eventos_mongodb(eventos):
-    """
-    Guarda los eventos recolectados en la base de datos MongoDB.
-    
-    Args:
-        eventos: Lista de eventos a guardar
-    """
     if not eventos:
         print("⚠️ No se encontraron eventos para guardar.")
         return
@@ -94,9 +72,6 @@ def guardar_eventos_mongodb(eventos):
         print(f"❌ Error al guardar en MongoDB: {e}")
 
 def recolectar_eventos():
-    """
-    Función principal que coordina el proceso de recolección de eventos de tráfico.
-    """
     driver = configurar_navegador()
     driver.get(WAZE_MAP_URL)
     time.sleep(5)

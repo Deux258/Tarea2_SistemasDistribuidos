@@ -22,12 +22,6 @@ MONGO_DB = "waze_db"
 MONGO_COLLECTION = "eventos"
 
 def conectar_mongodb():
-    """
-    Establece la conexión con MongoDB y retorna el cliente configurado.
-    
-    Returns:
-        pymongo.MongoClient: Cliente de MongoDB configurado
-    """
     try:
         client = MongoClient(MONGO_URI)
         db = client[MONGO_DB]
@@ -47,13 +41,6 @@ collection = db[MONGO_COLLECTION]
 
 @app.route('/events', methods=['GET'])
 def obtener_evento():
-    """
-    Endpoint para obtener un evento específico.
-    Primero busca en el caché, si no está disponible, lo busca en MongoDB.
-    
-    Returns:
-        JSON: Datos del evento y fuente (caché o MongoDB)
-    """
     event_id = request.args.get('id')
     if not event_id:
         return jsonify({"error": "Debe proporcionar 'id'"}), 400
