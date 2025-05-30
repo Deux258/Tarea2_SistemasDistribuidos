@@ -35,8 +35,8 @@ event_statistics = defaultdict(lambda: {
 })
 
 # Configuración de endpoints
-CACHE_API_URL = "http://query-cache:5000/events"
-EVENT_IDS_URL = "http://query-cache:5000/events/ids"
+CACHE_API_URL = "http://redis-cache:5000/events"
+EVENT_IDS_URL = "http://redis-cache:5000/events/ids"
 
 # Configuración de distribuciones
 DISTRIBUTION_TYPE = 0  # 0: Exponencial, 1: Uniforme

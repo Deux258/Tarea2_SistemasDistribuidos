@@ -17,7 +17,7 @@ if USE_PYAUTOGUI:
 WAZE_MAP_URL = "https://www.waze.com/es-419/live-map/"
 CHROMEDRIVER_PATH = "/usr/bin/chromedriver"
 PIXELS_PER_MOVE = 300
-MAX_EVENTOS = 10000
+MAX_EVENTOS = 100000
 
 # Direcciones de movimiento del mapa
 DIRECCIONES_MAPA = {
@@ -39,7 +39,7 @@ def analizar_solicitudes_red(driver, eventos):
                         evento.pop('comments', None)
                         eventos.append(evento)
                         if len(eventos) >= MAX_EVENTOS:
-                            print("🚨 Se alcanzó el límite de 10 mil eventos.")
+                            print("🚨 Se alcanzó el límite de 100 mil eventos.")
                             return True
             except Exception as e:
                 print(f"⚠️ Error al procesar respuesta: {e}")
@@ -62,7 +62,7 @@ def guardar_eventos_mongodb(eventos):
 
     try:
         print("💾 Conectando a MongoDB...")
-        client = MongoClient("mongodb://admin:admin123@data-storage:27017/")
+        client = MongoClient("mongodb://admin:pass@mongo:27017/")
         db = client["waze_db"]
         collection = db["eventos"]
 

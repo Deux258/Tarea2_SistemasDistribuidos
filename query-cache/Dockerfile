@@ -9,7 +9,8 @@ COPY cache.py .
 COPY requirements.txt .
 
 # Instalar dependencias
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir werkzeug==2.0.3 && \
+    pip install --no-cache-dir -r requirements.txt
 
 # Exponer el puerto para la API de caché
 EXPOSE 5000

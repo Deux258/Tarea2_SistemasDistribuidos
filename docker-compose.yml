@@ -5,16 +5,14 @@ networks:
     driver: bridge
 
 services:
-  # Servicio para el recolector de datos de Waze
+  # Servicio para el scraper
   waze-data-collector:
     build: ./waze-data-collector
-    container_name: waze_data_collector
+    container_name: waze-data-collector
     networks:
       - redisn
     volumes:
       - ./waze-data-collector:/app
-    depends_on:
-      - mongo
 
   # Servicio para MongoDB
   mongo:
@@ -29,29 +27,31 @@ services:
       - mongo_data:/data/db
     networks:
       - redisn
+    depends_on:
+      - waze-data-collector
 
-  # Servicio para la interfaz de administración de MongoDB
+  # Servicio para Mongo Express
   mongo-express:
-    image: mongo-express:latest
+    image: mongo-express
     container_name: mongo_express_waze
+    restart: always
     ports:
       - "8081:8081"
     environment:
       - ME_CONFIG_MONGODB_ADMINUSERNAME=admin
       - ME_CONFIG_MONGODB_ADMINPASSWORD=pass
       - ME_CONFIG_MONGODB_SERVER=mongo
-      - ME_CONFIG_BASICAUTH_USERNAME=admin
-      - ME_CONFIG_BASICAUTH_PASSWORD=pass
     networks:
       - redisn
     depends_on:
       - mongo
+      - waze-data-collector
 
   # Servicio para Redis
   redis:
     image: bitnami/redis:latest
     restart: always
-    container_name: redis_cache
+    container_name: redis_waze
     environment:
       - ALLOW_EMPTY_PASSWORD=yes
       - REDIS_EXTRA_FLAGS=--maxmemory 2mb --maxmemory-policy allkeys-random
@@ -61,12 +61,15 @@ services:
       - redis_data_1:/bitnami/redis/data
     networks:
       - redisn
-
-  # Servicio para la interfaz de administración de Redis
-  redis-admin:
+    depends_on:
+      - mongo
+      - waze-data-collector
+        
+  # Servicio para RedisInsight
+  redisinsight:
     image: redislabs/redisinsight:latest
     restart: always
-    container_name: redis_admin
+    container_name: redisinsight_waze
     volumes:
       - redis-insight:/data
     ports:
@@ -76,21 +79,20 @@ services:
     depends_on:
       - redis
 
-  # Servicio para el generador de tráfico
-  traffic-generator:
+  # Servicio para el request handler
+  request:
     build: ./traffic-generator
-    container_name: traffic_generator
+    container_name: traffic-generator
     depends_on:
-      - mongo
-      - redis
+      - waze-data-collector
     networks:
       - redisn
     restart: always
 
-  # Servicio para el sistema de caché
-  query-cache:
+  # Servicio para el cache (Flask)
+  redis-cache:
     build: ./query-cache
-    container_name: query_cache
+    container_name: redis_cache_waze
     restart: always
     ports:
       - "5000:5000"
@@ -99,8 +101,9 @@ services:
     volumes:
       - ./query-cache:/app
     depends_on:
-      - redis
       - mongo
+      - redis
+      - waze-data-collector
 
 volumes:
   mongo_data:
@@ -108,3 +111,30 @@ volumes:
   redis_data_1:
     driver: local
   redis-insight:
+
+  ### PARTE 2
+    mongo-exporter:
+    image: mongo:latest
+    container_name: mongo_exporter
+    depends_on:
+      - mongo
+    command:
+      [
+        "mongoexport",
+        "--host=mongo",
+        "--username=admin",
+        "--password=pass",
+        "--authenticationDatabase=admin",
+        "--db=waze",
+        "--collection=events",
+        "--out=/data/eventos_waze.json"
+      ]
+    volumes:
+      - ./pig-hadoop/data:/data
+
+
+
+
+
+
+# docker rm $(docker ps -a -q)
