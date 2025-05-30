@@ -41,6 +41,7 @@ def analizar_solicitudes_red(driver, eventos):
                         if len(eventos) >= MAX_EVENTOS:
                             print("🚨 Se alcanzó el límite de 100 mil eventos.")
                             return True
+                            
             except Exception as e:
                 print(f"⚠️ Error al procesar respuesta: {e}")
     return False
@@ -132,8 +133,9 @@ def recolectar_eventos():
             print(f"⚠️ Error al mover el mapa: {e}")
 
     driver.quit()
+
     guardar_eventos_mongodb(eventos)
-    print("✅ Navegación finalizada.")
+    print("✅ Navegación finalizada y eventos guardados.")
 
 if __name__ == "__main__":
     recolectar_eventos()

@@ -5,16 +5,13 @@ networks:
     driver: bridge
 
 services:
-  # Servicio para el scraper
+  # 1) Servicio para el scraper
   waze-data-collector:
     build: ./waze-data-collector
     container_name: waze-data-collector
-    networks:
-      - redisn
-    volumes:
-      - ./waze-data-collector:/app
+    networks: [redisn]
 
-  # Servicio para MongoDB
+  # 2) Servicio para MongoDB
   mongo:
     image: mongo:latest
     container_name: mongo_waze
@@ -30,94 +27,59 @@ services:
     depends_on:
       - waze-data-collector
 
-  # Servicio para Mongo Express
+   # 3) Mongo Express
   mongo-express:
     image: mongo-express
     container_name: mongo_express_waze
-    restart: always
-    ports:
-      - "8081:8081"
+    ports: ["8081:8081"]
     environment:
-      - ME_CONFIG_MONGODB_ADMINUSERNAME=admin
-      - ME_CONFIG_MONGODB_ADMINPASSWORD=pass
-      - ME_CONFIG_MONGODB_SERVER=mongo
-    networks:
-      - redisn
-    depends_on:
-      - mongo
-      - waze-data-collector
+      ME_CONFIG_MONGODB_ADMINUSERNAME: admin
+      ME_CONFIG_MONGODB_ADMINPASSWORD: pass
+      ME_CONFIG_MONGODB_SERVER: mongo
+    networks: [redisn]
+    depends_on: [mongo]
 
-  # Servicio para Redis
+  # 4) Redis y RedisInsight
   redis:
     image: bitnami/redis:latest
-    restart: always
     container_name: redis_waze
     environment:
-      - ALLOW_EMPTY_PASSWORD=yes
-      - REDIS_EXTRA_FLAGS=--maxmemory 2mb --maxmemory-policy allkeys-random
-    ports:
-      - "6379:6379"
+      ALLOW_EMPTY_PASSWORD: "yes"
+      REDIS_EXTRA_FLAGS: "--maxmemory 2mb --maxmemory-policy allkeys-random"
+    ports: ["6379:6379"]
     volumes:
       - redis_data_1:/bitnami/redis/data
-    networks:
-      - redisn
-    depends_on:
-      - mongo
-      - waze-data-collector
-        
-  # Servicio para RedisInsight
+    networks: [redisn]
+    depends_on: [mongo]
+
   redisinsight:
     image: redislabs/redisinsight:latest
-    restart: always
     container_name: redisinsight_waze
+    ports: ["5540:5540"]
     volumes:
       - redis-insight:/data
-    ports:
-      - "5540:5540"
-    networks:
-      - redisn
-    depends_on:
-      - redis
+    networks: [redisn]
+    depends_on: [redis]
 
-  # Servicio para el request handler
+# 5) Traffic generator (Flask/Python)
   request:
     build: ./traffic-generator
     container_name: traffic-generator
-    depends_on:
-      - waze-data-collector
-    networks:
-      - redisn
-    restart: always
+    networks: [redisn]
+    depends_on: [waze-data-collector, redis]
 
-  # Servicio para el cache (Flask)
   redis-cache:
     build: ./query-cache
     container_name: redis_cache_waze
-    restart: always
-    ports:
-      - "5000:5000"
-    networks:
-      - redisn
-    volumes:
-      - ./query-cache:/app
-    depends_on:
-      - mongo
-      - redis
-      - waze-data-collector
+    ports: ["5000:5000"]
+    networks: [redisn]
+    depends_on: [mongo, redis, waze-data-collector]
 
-volumes:
-  mongo_data:
-    driver: local
-  redis_data_1:
-    driver: local
-  redis-insight:
-
-  ### PARTE 2
-    mongo-exporter:
+  # 6) Exportar datos de Mongo a JSON
+  mongo-exporter:
     image: mongo:latest
     container_name: mongo_exporter
-    depends_on:
-      - mongo
+    depends_on: [mongo]
     command:
       [
         "mongoexport",
@@ -131,10 +93,32 @@ volumes:
       ]
     volumes:
       - ./pig-hadoop/data:/data
+    networks: [redisn]
 
+  # 7) Procesamiento con Hadoop + Pig
+  pig-processor:
+    build: ./pig-hadoop
+    container_name: pig_processor
+    depends_on: [mongo-exporter]
+    volumes:
+      - ./pig-hadoop/data:/data   # Datos JSON y salida CSV
+      - ./pig-hadoop/procesar_eventos.pig:/data/procesar_eventos.pig:ro  # script Pig
+    networks: [redisn]
 
+volumes:
+  mongo_data:
+    driver: local
+  redis_data_1:
+    driver: local
+  redis-insight:
 
 
 
 
 # docker rm $(docker ps -a -q)
+
+## lista de errores
+
+# redis_cache_waze     | ❌ Error al conectar con MongoDB: Authentication failed., full error: {'ok': 0.0, 'errmsg': 'Authentication failed.', 'code': 18, 'codeName': 'AuthenticationFailed'}
+# traffic-generator    | No se pudieron obtener los IDs de eventos.
+# traffic-generator exited with code 0
