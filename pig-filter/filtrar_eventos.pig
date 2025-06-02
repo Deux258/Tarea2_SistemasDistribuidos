@@ -14,6 +14,7 @@ eventos = LOAD '/data/eventos_waze.json'
        reliability:int'          -- confiabilidad del reporte
     );
 
+FLATTEN(eventos) AS (type, city, timestamp, street);
 -- Filtrar eventos según criterios:
 -- 1. Severidad > 2 (incidentes importantes)
 -- 2. Confiabilidad > 3 (reportes confiables)

@@ -27,5 +27,7 @@ RUN wget -qO- https://downloads.apache.org/pig/pig-${PIG_VERSION}/pig-${PIG_VERS
 
 WORKDIR /data
 COPY procesar_eventos.pig /scripts/
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
-CMD ["pig", "-x", "mapreduce", "/scripts/procesar_eventos.pig"]
+CMD ["/entrypoint.sh"]

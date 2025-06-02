@@ -62,7 +62,7 @@ def guardar_eventos_mongodb(eventos):
 
     try:
         print("💾 Conectando a MongoDB...")
-        client = MongoClient("mongodb://admin:pass@mongo:27017/") ##admin:admin
+        client = MongoClient("mongodb://admin:admin123@data-storage:27017/")
         db = client["waze_db"]
         collection = db["eventos"]
 

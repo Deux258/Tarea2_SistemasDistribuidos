@@ -20,7 +20,7 @@ db.createUser({
   ]
 });
 
-// Crear y configurar la base de datos
+// Crear y configurar la base de datos waze_db
 db = db.getSiblingDB("waze_db");
 db.createUser({
   user: 'admin',
@@ -30,4 +30,12 @@ db.createUser({
   ]
 });
 
-console.log("✅ Usuario administrador creado con éxito.");
+// Crear y configurar la base de datos waze_filtered
+db = db.getSiblingDB("waze_filtered");
+db.createUser({
+  user: 'admin',
+  pwd: 'admin',
+  roles: [
+    { role: 'readWrite', db: 'waze_filtered' }
+  ]
+});
