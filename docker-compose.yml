@@ -59,6 +59,17 @@ services:
       - redis_data_1:/bitnami/redis/data
     networks:
       - redisn
+    
+  pig-filter:
+    build: ./pig-filter
+    container_name: pig_filter
+    volumes:
+      - ./data-storage/data/map-scraper:/data
+      - ./pig-filter:/scripts
+    depends_on:
+      - mongo
+    networks:
+      - redisn
 
   # Servicio para la interfaz de administración de Redis
   redis-admin:
