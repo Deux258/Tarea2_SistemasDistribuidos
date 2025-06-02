@@ -9,8 +9,25 @@ const fs = require("fs");
 const rawData = fs.readFileSync("/data/waze-data-collector/eventos.json");
 const eventos = JSON.parse(rawData);
 
+// Crear usuario administrador
+db = db.getSiblingDB('admin');
+db.createUser({
+  user: 'admin',
+  pwd: 'admin',
+  roles: [
+    { role: 'userAdminAnyDatabase', db: 'admin' },
+    { role: 'readWriteAnyDatabase', db: 'admin' }
+  ]
+});
+
 // Crear y configurar la base de datos
 db = db.getSiblingDB("waze_db");
-db.eventos.insertMany(eventos);
+db.createUser({
+  user: 'admin',
+  pwd: 'admin',
+  roles: [
+    { role: 'readWrite', db: 'waze_db' }
+  ]
+});
 
-console.log("✅ Base de datos inicializada con éxito.");
+console.log("✅ Usuario administrador creado con éxito.");

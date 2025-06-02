@@ -17,7 +17,7 @@ if USE_PYAUTOGUI:
 WAZE_MAP_URL = "https://www.waze.com/es-419/live-map/"
 CHROMEDRIVER_PATH = "/usr/bin/chromedriver"
 PIXELS_PER_MOVE = 300
-MAX_EVENTOS = 10000
+MAX_EVENTOS = 100000
 
 # Direcciones de movimiento del mapa
 DIRECCIONES_MAPA = {
@@ -28,16 +28,6 @@ DIRECCIONES_MAPA = {
 }
 
 def analizar_solicitudes_red(driver, eventos):
-    """
-    Analiza las solicitudes de red para extraer eventos de tráfico de Waze.
-    
-    Args:
-        driver: Instancia del navegador Chrome
-        eventos: Lista donde se almacenarán los eventos encontrados
-    
-    Returns:
-        bool: True si se alcanzó el límite de eventos, False en caso contrario
-    """
     print("📡 Analizando solicitudes de red...")
     for request in driver.requests:
         if request.response and request.url.split('?')[0].endswith("georss"):
@@ -56,12 +46,6 @@ def analizar_solicitudes_red(driver, eventos):
     return False
 
 def configurar_navegador():
-    """
-    Configura y retorna una instancia del navegador Chrome con las opciones necesarias.
-    
-    Returns:
-        webdriver.Chrome: Instancia configurada del navegador
-    """
     options = Options()
     options.add_argument("--headless")
     options.add_argument("--no-sandbox")
@@ -72,31 +56,22 @@ def configurar_navegador():
     return webdriver.Chrome(service=service, options=options)
 
 def guardar_eventos_mongodb(eventos):
-    """
-    Guarda los eventos recolectados en la base de datos MongoDB.
-    
-    Args:
-        eventos: Lista de eventos a guardar
-    """
     if not eventos:
         print("⚠️ No se encontraron eventos para guardar.")
         return
 
     try:
         print("💾 Conectando a MongoDB...")
-        client = MongoClient("mongodb://admin:admin123@data-storage:27017/")
+        client = MongoClient("mongodb://admin:pass@mongo:27017/") ##admin:admin
         db = client["waze_db"]
         collection = db["eventos"]
 
         result = collection.insert_many(eventos)
         print(f"\n✅ Se insertaron {len(result.inserted_ids)} eventos en MongoDB.")
     except Exception as e:
-        print(f"❌ Error al guardar en MongoDB: {e}")
+        print(f"❌ Error guardando en MongoDB: {e}")
 
 def recolectar_eventos():
-    """
-    Función principal que coordina el proceso de recolección de eventos de tráfico.
-    """
     driver = configurar_navegador()
     driver.get(WAZE_MAP_URL)
     time.sleep(5)
