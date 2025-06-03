@@ -13,7 +13,7 @@ const eventos = JSON.parse(rawData);
 db = db.getSiblingDB('admin');
 db.createUser({
   user: 'admin',
-  pwd: 'admin',
+  pwd: 'admin123',
   roles: [
     { role: 'userAdminAnyDatabase', db: 'admin' },
     { role: 'readWriteAnyDatabase', db: 'admin' }
@@ -24,7 +24,7 @@ db.createUser({
 db = db.getSiblingDB("waze_db");
 db.createUser({
   user: 'admin',
-  pwd: 'admin',
+  pwd: 'admin123',
   roles: [
     { role: 'readWrite', db: 'waze_db' }
   ]
@@ -34,7 +34,7 @@ db.createUser({
 db = db.getSiblingDB("waze_filtered");
 db.createUser({
   user: 'admin',
-  pwd: 'admin',
+  pwd: 'admin123',
   roles: [
     { role: 'readWrite', db: 'waze_filtered' }
   ]
