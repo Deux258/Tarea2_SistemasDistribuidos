@@ -17,7 +17,7 @@ if USE_PYAUTOGUI:
 WAZE_MAP_URL = "https://www.waze.com/es-419/live-map/"
 CHROMEDRIVER_PATH = "/usr/bin/chromedriver"
 PIXELS_PER_MOVE = 300
-MAX_EVENTOS = 100000
+MAX_EVENTOS = 10000
 
 # Direcciones de movimiento del mapa
 DIRECCIONES_MAPA = {
@@ -39,7 +39,7 @@ def analizar_solicitudes_red(driver, eventos):
                         evento.pop('comments', None)
                         eventos.append(evento)
                         if len(eventos) >= MAX_EVENTOS:
-                            print("🚨 Se alcanzó el límite de 10,000 eventos.")
+                            print("🚨 Se alcanzó el límite de {MAX_EVENTOS} eventos.")
                             return True
             except Exception as e:
                 print(f"⚠️ Error al procesar respuesta: {e}")
@@ -71,7 +71,27 @@ def guardar_eventos_mongodb(eventos):
     except Exception as e:
         print(f"❌ Error guardando en MongoDB: {e}")
 
+def verificar_eventos_existentes():
+    try:
+        print("🔍 Verificando eventos existentes en MongoDB...")
+        client = MongoClient("mongodb://admin:admin123@data-storage:27017/")
+        db = client["waze_db"]
+        collection = db["eventos"]
+        
+        count = collection.count_documents({})
+        print(f"📊 Se encontraron {count} eventos en la base de datos.")
+        return count
+    except Exception as e:
+        print(f"❌ Error al verificar eventos existentes: {e}")
+        return 0
+
 def recolectar_eventos():
+    # Verificar eventos existentes antes de comenzar
+    eventos_existentes = verificar_eventos_existentes()
+    if eventos_existentes >= MAX_EVENTOS:
+        print(f"✅ Ya se han recolectado {eventos_existentes} eventos. No es necesario recolectar más.")
+        return
+
     driver = configurar_navegador()
     driver.get(WAZE_MAP_URL)
     time.sleep(5)
@@ -110,7 +130,7 @@ def recolectar_eventos():
     print("🔄 Iniciando movimientos aleatorios del mapa...")
 
     # Recolectar eventos moviendo el mapa
-    while len(eventos) < MAX_EVENTOS:
+    while len(eventos) < (MAX_EVENTOS):
         direccion = random.choice(list(DIRECCIONES_MAPA.keys()))
         dx, dy = DIRECCIONES_MAPA[direccion]
 
