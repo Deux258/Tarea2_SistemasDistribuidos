@@ -4,14 +4,14 @@
 -- ===================================================================
 
 -- Cargar datos desde el archivo JSON exportado de MongoDB
-eventos = LOAD '/data/eventos_waze.json' 
+eventos = LOAD '/data-storage/eventos.json' 
     USING JsonLoader(
-      'type:chararray,           -- tipo de incidente
-       city:chararray,           -- comuna o ciudad
-       timestamp:long,           -- marca de tiempo
-       street:chararray,         -- calle o ruta
-       severity:int,             -- severidad del incidente
-       reliability:int'          -- confiabilidad del reporte
+      'type:chararray,
+       city:chararray,
+       timestamp:long,
+       street:chararray,
+       severity:int,
+       reliability:int'
     );
 
 -- FLATTEN(eventos) AS (type, city, timestamp, street);
@@ -19,6 +19,8 @@ eventos = LOAD '/data/eventos_waze.json'
 -- 1. Severidad > 2 (incidentes importantes)
 -- 2. Confiabilidad > 3 (reportes confiables)
 -- 3. Campos críticos no nulos
+
+
 filtrados = FILTER eventos BY 
     severity > 2 AND 
     reliability > 3 AND 
@@ -27,7 +29,7 @@ filtrados = FILTER eventos BY
     timestamp IS NOT NULL;
 
 -- Guardar resultados filtrados
-STORE filtrados INTO '/data/eventos_filtrados' USING PigStorage(',');
+STORE filtrados INTO '/data-storage/eventos_filtrados' USING PigStorage(',');
 
 
 

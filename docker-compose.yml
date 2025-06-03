@@ -5,30 +5,38 @@ networks:
     driver: bridge
 
 services:
-  # Servicio para el scraper
-  map-scraper:
-    build: ./map-scraper # El contexto de la construcción para el scraper
-    container_name: map_scraper_waze
-    networks:
-      - redisn
-    volumes:
-      - ./map-scraper:/app # Asegura que se sincronice el código con el contenedor
-
   # Servicio para MongoDB
   mongo:
-    build: ./bdd # El contexto de la construcción para MongoDB
+    build: ./data-storage
     container_name: mongo_waze
+    healthcheck:
+      test: ["CMD", "mongo", "--username", "admin", "--password", "admin123", "--authenticationDatabase", "admin", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
     ports:
       - "27017:27017"
     volumes:
-      - ./map-scraper/alertas.json:/data/map-scraper/alertas.json:ro
+      - ./data-storage/alertas.json:/data/alertas.json:ro
+      - mongo_data:/data/db
     environment:
       - MONGO_INITDB_ROOT_USERNAME=admin
       - MONGO_INITDB_ROOT_PASSWORD=admin123
     networks:
       - redisn
+    command: mongod --bind_ip_all --auth
+
+  # Servicio para el scraper
+  waze-scraper:
+    build: ./waze-scraper
+    container_name: waze_scraper
+    networks:
+      - redisn
+    volumes:
+      - ./waze-scraper:/app
+      - ./data-storage:/data
     depends_on:
-      - map-scraper # Asegura que el scraper esté listo antes de iniciar MongoDB
+      - mongo
 
   # Servicio para Mongo Express
   mongo-express:
@@ -41,11 +49,11 @@ services:
       - ME_CONFIG_MONGODB_ADMINUSERNAME=admin
       - ME_CONFIG_MONGODB_ADMINPASSWORD=admin123
       - ME_CONFIG_MONGODB_SERVER=mongo
+      - ME_CONFIG_MONGODB_PORT=27017
     networks:
       - redisn
     depends_on:
       - mongo
-      - map-scraper # Asegura que MongoDB esté listo antes de iniciar Mongo Express
 
   # Servicio para Redis
   redis:
@@ -54,16 +62,13 @@ services:
     container_name: redis_waze
     environment:
       - ALLOW_EMPTY_PASSWORD=yes
-      - REDIS_EXTRA_FLAGS=--maxmemory 2mb --maxmemory-policy allkeys-random # Configuración de Redis para limitar el uso de memoria
+      - REDIS_EXTRA_FLAGS=--maxmemory 2mb --maxmemory-policy allkeys-random
     ports:
       - "6379:6379"
     volumes:
-      - redis_data_1:/bitnami/redis/data # Volumen para persistencia de Redis
+      - redis_data_1:/bitnami/redis/data
     networks:
       - redisn
-    depends_on:
-      - mongo # Asegura que MongoDB esté listo antes de iniciar Redis
-      - map-scraper
 
   # Servicio para RedisInsight
   redisinsight:
@@ -79,36 +84,33 @@ services:
     depends_on:
       - redis
 
-  # Servicio para el request handler
-  request:
-    build: ./request
-    container_name: request_waze
-    depends_on:
-      - map-scraper
-      - mongo
-      - redis
-    networks:
-      - redisn
-    restart: always
-
-  # Servicio para el cache (Flask)
-  redis-cache:
-    build: ./redis-cache # El contexto de la construcción para redis-cache (flask)
-    container_name: redis_cache_waze
-    restart: always
-    ports:
-      - "5000:5000"
+  # Servicio para el pig-filter
+  pig-filter:
+    build: ./pig-filter
+    container_name: pig_filter
     networks:
       - redisn
     volumes:
-      - ./redis-cache:/app # Asegura que el código se sincronice con el contenedor
+      - ./data-storage:/data  # Volumen compartido para datos
+      - ./pig-filter:/app
     depends_on:
-      - redis # Asegura que Redis esté listo antes de iniciar el cache
-      - mongo # Asegura que MongoDB esté listo antes de iniciar el cache
-      - map-scraper # Asegura que el scraper esté listo antes de iniciar el cache
+      - waze-scraper
+      - mongo
+
+  # Servicio para el pig-processor
+  pig-processor:
+    build: ./pig-processor
+    container_name: pig_processor
+    networks:
+      - redisn
+    volumes:
+      - ./pig-processor:/app
+    depends_on:
+      - pig-filter
+      - redis
 
 volumes:
-  mongo_data: # Volumen persistente para MongoDB
-  redis_data_1: # Volumen persistente para Redis
+  mongo_data:
+  redis_data_1:
     driver: local
-  redis-insight: # Volumen para RedisInsight
+  redis-insight:

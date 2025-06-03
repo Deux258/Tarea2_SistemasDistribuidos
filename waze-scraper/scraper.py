@@ -28,7 +28,7 @@ DIRECCIONES_MAPA = {
 }
 
 def analizar_solicitudes_red(driver, eventos):
-    print("📡 Analizando solicitudes de red...")
+    print("🔍 Revisando solicitudes de red...")
     for request in driver.requests:
         if request.response and request.url.split('?')[0].endswith("georss"):
             try:
@@ -39,10 +39,10 @@ def analizar_solicitudes_red(driver, eventos):
                         evento.pop('comments', None)
                         eventos.append(evento)
                         if len(eventos) >= MAX_EVENTOS:
-                            print("🚨 Se alcanzó el límite de 10 mil eventos.")
+                            print("🛑 Se ha alcanzado el máximo de 10 mil eventos.")
                             return True
             except Exception as e:
-                print(f"⚠️ Error al procesar respuesta: {e}")
+                print(f"⚠️ Problema al procesar la respuesta: {e}")
     return False
 
 def configurar_navegador():
@@ -57,19 +57,19 @@ def configurar_navegador():
 
 def guardar_eventos_mongodb(eventos):
     if not eventos:
-        print("⚠️ No se encontraron eventos para guardar.")
+        print("ℹ️ No hay eventos para guardar.")
         return
 
     try:
-        print("💾 Conectando a MongoDB...")
-        client = MongoClient("mongodb://admin:pass@data-storage:27017/")
+        print("📁 Estableciendo conexión con MongoDB...")
+        client = MongoClient("mongodb://admin:admin123@mongo:27017/")
         db = client["waze_db"]
         collection = db["eventos"]
 
         result = collection.insert_many(eventos)
-        print(f"\n✅ Se insertaron {len(result.inserted_ids)} eventos en MongoDB.")
+        print(f"\n✅ Se han guardado {len(result.inserted_ids)} eventos en MongoDB.")
     except Exception as e:
-        print(f"❌ Error al guardar en MongoDB: {e}")
+        print(f"❌ Fallo al guardar en MongoDB: {e}")
 
 def recolectar_eventos():
     driver = configurar_navegador()
@@ -84,7 +84,7 @@ def recolectar_eventos():
         pass
 
     time.sleep(2)
-    
+
     # Configurar punto central del mapa
     if USE_PYAUTOGUI:
         screenWidth, screenHeight = pyautogui.size()
@@ -98,16 +98,16 @@ def recolectar_eventos():
 
     # Ajustar zoom inicial
     try:
-        print("🔍 Haciendo zoom al mapa...")
+        print("🔎 Ajustando el zoom del mapa...")
         zoom_in_button = driver.find_element(By.CLASS_NAME, "leaflet-control-zoom-in")
         for _ in range(1):
             zoom_in_button.click()
             time.sleep(1)
     except Exception as e:
-        print(f"⚠️ Error al hacer zoom: {e}")
+        print(f"⚠️ Error al ajustar el zoom: {e}")
 
     eventos = []
-    print("🔄 Iniciando movimientos aleatorios del mapa...")
+    print("🗺️ Comenzando movimientos aleatorios del mapa...")
 
     # Recolectar eventos moviendo el mapa
     while len(eventos) < MAX_EVENTOS:
@@ -116,37 +116,37 @@ def recolectar_eventos():
 
         try:
             if USE_PYAUTOGUI:
-                print(f"🧭 Moviendo hacia: {direccion}")
+                print(f"📍 Movimiento en dirección: {direccion}")
                 pyautogui.moveTo(center_x, center_y)
                 pyautogui.mouseDown()
                 pyautogui.moveRel(dx, dy, duration=0.5)
                 pyautogui.mouseUp()
                 time.sleep(3)
             else:
-                print(f"🧭 (Simulado) Movimiento hacia: {direccion}")
+                print(f"📍 (Simulado) Movimiento en dirección: {direccion}")
                 time.sleep(1)
 
             if analizar_solicitudes_red(driver, eventos):
                 break
         except Exception as e:
-            print(f"⚠️ Error al mover el mapa: {e}")
+            print(f"⚠️ Error durante el movimiento del mapa: {e}")
 
     driver.quit()
     guardar_eventos_mongodb(eventos)
-    print("✅ Navegación finalizada.")
+    print("🏁 Finalizando la navegación.")
 
-    # flag de finalización
+    # Flag de finalización
     try:
         with open('/data/scraper_complete', 'w') as f:
             f.write('done')
-        print("✅ Flag de finalización creado correctamente")
+        print("✅ Se ha creado el indicador de finalización correctamente")
     except Exception as e:
-        print(f"⚠️ Error al crear flag de finalización: {e}")
+        print(f"⚠️ Error al crear el indicador de finalización: {e}")
+
     # Crea directorio si no existe
     os.makedirs('/data-storage', exist_ok=True)
     with open('/data-storage/scraper_complete', 'w') as f:
         f.write('done')
-
 
 if __name__ == "__main__":
     recolectar_eventos()

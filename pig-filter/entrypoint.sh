@@ -2,20 +2,31 @@
 
 set -e
 
+echo "Esperando a que MongoDB esté disponible..."
+until mongosh --host mongo --username admin --password admin123 --authenticationDatabase admin --eval "db.adminCommand('ping')" &> /dev/null; do
+  echo "MongoDB no disponible, reintentando..."
+  sleep 5
+done
+
 echo "Exportando datos desde MongoDB..."
-mongoexport --uri="mongodb://admin:pass@mongo_waze:27017/waze_db" \
-            --collection=eventos \
-            --out=/data/eventos.json \
-            --jsonArray
+mongosh --host mongo --username admin --password admin123 --authenticationDatabase admin --eval 'db.eventos.find().toArray()' > /data-storage/eventos.json
 
-echo "Filtrando datos con Apache Pig..."
-pig -x local /filtrar_eventos.pig
+echo "Verificando archivo de eventos..."
+if [ ! -s /data-storage/eventos.json ]; then
+    echo "Error: El archivo de eventos está vacío o no existe"
+    exit 1
+fi
 
-echo "Creando flag de finalización..."
-echo "done" > /data/filter_complete
+echo "Ejecutando script Pig para filtrar eventos..."
+pig -x local /app/filtrar_eventos.pig
 
-echo "Importando resultados filtrados a la base de datos waze_filtered..."
-mongoimport --uri="mongodb://admin:pass@mongo_waze:27017/waze_filtered" --collection=eventos_filtrados --file=/data/eventos_filtrados --type=csv --headerline
+if [ $? -eq 0 ]; then
+    echo "Proceso de filtrado completado exitosamente"
+    echo "Creando flag de finalización..."
+    touch /data-storage/filter_complete
+else
+    echo "Error en el proceso de filtrado"
+    exit 1
+fi
 
-echo "Proceso completado. Resultados importados en la colección eventos_filtrados de waze_filtered."
-#/data/eventos_filtrados"
+echo "Proceso de filtrado completado!"
