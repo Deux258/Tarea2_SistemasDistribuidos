@@ -62,7 +62,7 @@ def guardar_eventos_mongodb(eventos):
 
     try:
         print("💾 Conectando a MongoDB...")
-        client = MongoClient("mongodb://admin:admin123@data-storage:27017/")
+        client = MongoClient("mongodb://admin:pass@data-storage:27017/")
         db = client["waze_db"]
         collection = db["eventos"]
 
@@ -134,6 +134,19 @@ def recolectar_eventos():
     driver.quit()
     guardar_eventos_mongodb(eventos)
     print("✅ Navegación finalizada.")
+
+    # flag de finalización
+    try:
+        with open('/data/scraper_complete', 'w') as f:
+            f.write('done')
+        print("✅ Flag de finalización creado correctamente")
+    except Exception as e:
+        print(f"⚠️ Error al crear flag de finalización: {e}")
+    # Crea directorio si no existe
+    os.makedirs('/data-storage', exist_ok=True)
+    with open('/data-storage/scraper_complete', 'w') as f:
+        f.write('done')
+
 
 if __name__ == "__main__":
     recolectar_eventos()

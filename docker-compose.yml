@@ -5,68 +5,71 @@ networks:
     driver: bridge
 
 services:
-  # Servicio para el recolector de datos de Waze
-  waze-data-collector:
-    build: ./waze-data-collector
-    container_name: waze_data_collector
+  # Servicio para el scraper
+  map-scraper:
+    build: ./map-scraper # El contexto de la construcción para el scraper
+    container_name: map_scraper_waze
     networks:
       - redisn
     volumes:
-      - ./waze-data-collector:/app
-    depends_on:
-      - mongo
+      - ./map-scraper:/app # Asegura que se sincronice el código con el contenedor
 
   # Servicio para MongoDB
   mongo:
-    image: mongo:latest
+    build: ./bdd # El contexto de la construcción para MongoDB
     container_name: mongo_waze
     ports:
       - "27017:27017"
+    volumes:
+      - ./map-scraper/alertas.json:/data/map-scraper/alertas.json:ro
     environment:
       - MONGO_INITDB_ROOT_USERNAME=admin
-      - MONGO_INITDB_ROOT_PASSWORD=pass
-    volumes:
-      - mongo_data:/data/db
+      - MONGO_INITDB_ROOT_PASSWORD=admin123
     networks:
       - redisn
+    depends_on:
+      - map-scraper # Asegura que el scraper esté listo antes de iniciar MongoDB
 
-  # Servicio para la interfaz de administración de MongoDB
+  # Servicio para Mongo Express
   mongo-express:
-    image: mongo-express:latest
+    image: mongo-express
     container_name: mongo_express_waze
+    restart: always
     ports:
       - "8081:8081"
     environment:
       - ME_CONFIG_MONGODB_ADMINUSERNAME=admin
-      - ME_CONFIG_MONGODB_ADMINPASSWORD=pass
+      - ME_CONFIG_MONGODB_ADMINPASSWORD=admin123
       - ME_CONFIG_MONGODB_SERVER=mongo
-      - ME_CONFIG_BASICAUTH_USERNAME=admin
-      - ME_CONFIG_BASICAUTH_PASSWORD=pass
     networks:
       - redisn
     depends_on:
       - mongo
+      - map-scraper # Asegura que MongoDB esté listo antes de iniciar Mongo Express
 
   # Servicio para Redis
   redis:
     image: bitnami/redis:latest
     restart: always
-    container_name: redis_cache
+    container_name: redis_waze
     environment:
       - ALLOW_EMPTY_PASSWORD=yes
-      - REDIS_EXTRA_FLAGS=--maxmemory 2mb --maxmemory-policy allkeys-random
+      - REDIS_EXTRA_FLAGS=--maxmemory 2mb --maxmemory-policy allkeys-random # Configuración de Redis para limitar el uso de memoria
     ports:
       - "6379:6379"
     volumes:
-      - redis_data_1:/bitnami/redis/data
+      - redis_data_1:/bitnami/redis/data # Volumen para persistencia de Redis
     networks:
       - redisn
+    depends_on:
+      - mongo # Asegura que MongoDB esté listo antes de iniciar Redis
+      - map-scraper
 
-  # Servicio para la interfaz de administración de Redis
-  redis-admin:
+  # Servicio para RedisInsight
+  redisinsight:
     image: redislabs/redisinsight:latest
     restart: always
-    container_name: redis_admin
+    container_name: redisinsight_waze
     volumes:
       - redis-insight:/data
     ports:
@@ -76,35 +79,36 @@ services:
     depends_on:
       - redis
 
-  # Servicio para el generador de tráfico
-  traffic-generator:
-    build: ./traffic-generator
-    container_name: traffic_generator
+  # Servicio para el request handler
+  request:
+    build: ./request
+    container_name: request_waze
     depends_on:
+      - map-scraper
       - mongo
       - redis
     networks:
       - redisn
     restart: always
 
-  # Servicio para el sistema de caché
-  query-cache:
-    build: ./query-cache
-    container_name: query_cache
+  # Servicio para el cache (Flask)
+  redis-cache:
+    build: ./redis-cache # El contexto de la construcción para redis-cache (flask)
+    container_name: redis_cache_waze
     restart: always
     ports:
       - "5000:5000"
     networks:
       - redisn
     volumes:
-      - ./query-cache:/app
+      - ./redis-cache:/app # Asegura que el código se sincronice con el contenedor
     depends_on:
-      - redis
-      - mongo
+      - redis # Asegura que Redis esté listo antes de iniciar el cache
+      - mongo # Asegura que MongoDB esté listo antes de iniciar el cache
+      - map-scraper # Asegura que el scraper esté listo antes de iniciar el cache
 
 volumes:
-  mongo_data:
+  mongo_data: # Volumen persistente para MongoDB
+  redis_data_1: # Volumen persistente para Redis
     driver: local
-  redis_data_1:
-    driver: local
-  redis-insight:
+  redis-insight: # Volumen para RedisInsight
