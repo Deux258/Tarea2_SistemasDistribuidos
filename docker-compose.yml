@@ -82,7 +82,7 @@ services:
       - pig-filter
     volumes:
       - ./data-storage/data:/data
-      - ./pig-processing:/scripts
+      - ./pig-processor:/scripts
     networks: 
       - redisn
 

@@ -17,7 +17,7 @@ if USE_PYAUTOGUI:
 WAZE_MAP_URL = "https://www.waze.com/es-419/live-map/"
 CHROMEDRIVER_PATH = "/usr/bin/chromedriver"
 PIXELS_PER_MOVE = 300
-MAX_EVENTOS = 100000
+MAX_EVENTOS = 10000
 
 # Direcciones de movimiento del mapa
 DIRECCIONES_MAPA = {
@@ -28,7 +28,7 @@ DIRECCIONES_MAPA = {
 }
 
 def analizar_solicitudes_red(driver, eventos):
-    print("📡 Analizando solicitudes de red...")
+    print("🔍 Revisando solicitudes de red...")
     for request in driver.requests:
         if request.response and request.url.split('?')[0].endswith("georss"):
             try:
@@ -39,10 +39,10 @@ def analizar_solicitudes_red(driver, eventos):
                         evento.pop('comments', None)
                         eventos.append(evento)
                         if len(eventos) >= MAX_EVENTOS:
-                            print("🚨 Se alcanzó el límite de 100 mil eventos.")
+                            print("🛑 Se ha alcanzado el máximo de 10 mil eventos.")
                             return True
             except Exception as e:
-                print(f"⚠️ Error al procesar respuesta: {e}")
+                print(f"⚠️ Problema al procesar la respuesta: {e}")
     return False
 
 def configurar_navegador():
@@ -57,41 +57,21 @@ def configurar_navegador():
 
 def guardar_eventos_mongodb(eventos):
     if not eventos:
-        print("⚠️ No se encontraron eventos para guardar.")
+        print("ℹ️ No hay eventos para guardar.")
         return
 
     try:
-        print("💾 Conectando a MongoDB...")
+        print("📁 Estableciendo conexión con MongoDB...")
         client = MongoClient("mongodb://admin:admin123@mongo:27017/waze_db?authSource=admin")
         db = client["waze_db"]
         collection = db["eventos"]
 
         result = collection.insert_many(eventos)
-        print(f"\n✅ Se insertaron {len(result.inserted_ids)} eventos en MongoDB.")
+        print(f"\n✅ Se han guardado {len(result.inserted_ids)} eventos en MongoDB.")
     except Exception as e:
-        print(f"❌ Error guardando en MongoDB: {e}")
-
-def verificar_eventos_existentes():
-    try:
-        print("🔍 Verificando eventos existentes en MongoDB...")
-        client = MongoClient("mongodb://admin:admin123@mongo:27017/waze_db?authSource=admin")
-        db = client["waze_db"]
-        collection = db["eventos"]
-        
-        count = collection.count_documents({})
-        print(f"📊 Se encontraron {count} eventos en la base de datos.")
-        return count
-    except Exception as e:
-        print(f"❌ Error al verificar eventos existentes: {e}")
-        return 0
+        print(f"❌ Fallo al guardar en MongoDB: {e}")
 
 def recolectar_eventos():
-    # Verificar eventos existentes antes de comenzar
-    eventos_existentes = verificar_eventos_existentes()
-    if eventos_existentes >= MAX_EVENTOS:
-        print(f"✅ Ya se han recolectado {eventos_existentes} eventos. No es necesario recolectar más.")
-        return
-
     driver = configurar_navegador()
     driver.get(WAZE_MAP_URL)
     time.sleep(5)
@@ -104,7 +84,7 @@ def recolectar_eventos():
         pass
 
     time.sleep(2)
-    
+
     # Configurar punto central del mapa
     if USE_PYAUTOGUI:
         screenWidth, screenHeight = pyautogui.size()
@@ -118,42 +98,55 @@ def recolectar_eventos():
 
     # Ajustar zoom inicial
     try:
-        print("🔍 Haciendo zoom al mapa...")
+        print("🔎 Ajustando el zoom del mapa...")
         zoom_in_button = driver.find_element(By.CLASS_NAME, "leaflet-control-zoom-in")
         for _ in range(1):
             zoom_in_button.click()
             time.sleep(1)
     except Exception as e:
-        print(f"⚠️ Error al hacer zoom: {e}")
+        print(f"⚠️ Error al ajustar el zoom: {e}")
 
     eventos = []
-    print("🔄 Iniciando movimientos aleatorios del mapa...")
+    print("🗺️ Comenzando movimientos aleatorios del mapa...")
 
     # Recolectar eventos moviendo el mapa
-    while len(eventos) < (MAX_EVENTOS):
+    while len(eventos) < MAX_EVENTOS:
         direccion = random.choice(list(DIRECCIONES_MAPA.keys()))
         dx, dy = DIRECCIONES_MAPA[direccion]
 
         try:
             if USE_PYAUTOGUI:
-                print(f"🧭 Moviendo hacia: {direccion}")
+                print(f"📍 Movimiento en dirección: {direccion}")
                 pyautogui.moveTo(center_x, center_y)
                 pyautogui.mouseDown()
                 pyautogui.moveRel(dx, dy, duration=0.5)
                 pyautogui.mouseUp()
                 time.sleep(3)
             else:
-                print(f"🧭 (Simulado) Movimiento hacia: {direccion}")
+                print(f"📍 (Simulado) Movimiento en dirección: {direccion}")
                 time.sleep(1)
 
             if analizar_solicitudes_red(driver, eventos):
                 break
         except Exception as e:
-            print(f"⚠️ Error al mover el mapa: {e}")
+            print(f"⚠️ Error durante el movimiento del mapa: {e}")
 
     driver.quit()
     guardar_eventos_mongodb(eventos)
-    print("✅ Navegación finalizada.")
+    print("🏁 Finalizando la navegación.")
+
+    # Flag de finalización
+    try:
+        with open('/data/scraper_complete', 'w') as f:
+            f.write('done')
+        print("✅ Se ha creado el indicador de finalización correctamente")
+    except Exception as e:
+        print(f"⚠️ Error al crear el indicador de finalización: {e}")
+
+    # Crea directorio si no existe
+    os.makedirs('/data-storage', exist_ok=True)
+    with open('/data-storage/scraper_complete', 'w') as f:
+        f.write('done')
 
 if __name__ == "__main__":
     recolectar_eventos()
