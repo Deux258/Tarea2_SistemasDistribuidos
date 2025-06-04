@@ -15,12 +15,14 @@
 -- -------------------------------------------------------------------
 -- Asumimos que `eventos_waze.json` ya existe en HDFS o en el sistema de archivos local 
 -- del nodo donde se ejecuta Pig. Su esquema se define a continuación.
-raw = LOAD 'eventos_waze.json' 
-    USING JsonLoader(
-      'type:chararray,           -- tipo de incidente (JAM, ACCIDENT, HAZARD, etc.)
-       city:chararray,           -- comuna o ciudad donde ocurre el incidente
-       timestamp:long,           -- marca de tiempo en milisegundos
-       street:chararray'         -- calle o ruta
+filtered = LOAD '/data/eventos_filtrados/part*' 
+    USING PigStorage(',') AS (
+        type:chararray,
+        city:chararray,
+        timestamp:long,
+        street:chararray,
+        severity:int,
+        reliability:int
     );
 
 -- 1) PREPROCESAMIENTO DE DATOS
