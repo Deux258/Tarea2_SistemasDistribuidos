@@ -1,4 +1,6 @@
 # Sistema de Procesamiento de Eventos de Tráfico Waze
+Diego Muñoz Barra, Sebastián Zuñiga.
+
 
 ## Arquitectura del Sistema Tarea 2
 
