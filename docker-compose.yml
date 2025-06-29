@@ -24,7 +24,7 @@ services:
       - "27017:27017"
     environment:
       - MONGO_INITDB_ROOT_USERNAME=admin
-      - MONGO_INITDB_ROOT_PASSWORD=pass
+      - MONGO_INITDB_ROOT_PASSWORD=admin
     volumes:
       - mongo_data:/data/db
     networks:
@@ -38,13 +38,13 @@ services:
       - "8081:8081"
     environment:
       ME_CONFIG_MONGODB_ADMINUSERNAME: admin
-      ME_CONFIG_MONGODB_ADMINPASSWORD: admin123
+      ME_CONFIG_MONGODB_ADMINPASSWORD: admin
       ME_CONFIG_MONGODB_SERVER: mongo
     networks:
       - redisn
     depends_on:
       - mongo
-      #- waze-data-collector
+      - waze-data-collector
 
   # Servicio para Redis
   redis:
@@ -74,17 +74,6 @@ services:
     networks:
       - redisn
 
-  # Procesado con Pig Hadoop
-  pig-processor:
-    build: ./pig-processor
-    container_name: pig_processor
-    depends_on: 
-      - pig-filter
-    volumes:
-      - ./data-storage/data:/data
-      - ./pig-processing:/scripts
-    networks: 
-      - redisn
 
   # Servicio para la interfaz de administración de Redis
   redis-admin:

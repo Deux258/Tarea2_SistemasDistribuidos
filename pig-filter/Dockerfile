@@ -1,24 +1,47 @@
-FROM ubuntu:20.04
+FROM python:3.9-slim
 
-ENV DEBIAN_FRONTEND=noninteractive
-
-
+# 1. Instala dependencias básicas
 RUN apt-get update && \
-    apt-get install -y openjdk-8-jdk wget curl gnupg && \
-    wget https://downloads.apache.org/pig/pig-0.17.0/pig-0.17.0.tar.gz && \
-    tar -xzvf pig-0.17.0.tar.gz -C /opt && \
-    ln -s /opt/pig-0.17.0/bin/pig /usr/local/bin/pig && \
-    rm pig-0.17.0.tar.gz && \
-    apt-get install -y mongodb-clients
+    apt-get install -y \
+    openjdk-17-jre-headless \
+    wget \
+    tar \
+    curl && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
-ENV JAVA_HOME /usr/lib/jvm/java-8-openjdk-amd64
-ENV PIG_HOME /opt/pig-0.17.0
-ENV PATH $PATH:$PIG_HOME/bin
+# 1.1 Configura JAVA_HOME para ARM64
+ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-arm64
+ENV PATH=$PATH:$JAVA_HOME/bin
 
-COPY filtrar_eventos.pig /filtrar_eventos.pig
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+# 2. Instalar Hadoop
+RUN wget https://archive.apache.org/dist/hadoop/common/hadoop-3.2.1/hadoop-3.2.1.tar.gz && \
+    tar -xzf hadoop-3.2.1.tar.gz && \
+    mv hadoop-3.2.1 /opt/hadoop && \
+    rm hadoop-3.2.1.tar.gz
 
-WORKDIR /data
+# 2.1 Configurar Hadoop
+ENV HADOOP_HOME=/opt/hadoop
+ENV PATH=$PATH:$HADOOP_HOME/bin:$HADOOP_HOME/sbin
+ENV HADOOP_CONF_DIR=$HADOOP_HOME/etc/hadoop
+ENV HADOOP_OPTS="-Djava.net.preferIPv4Stack=true"
 
-CMD ["/entrypoint.sh"]
+# 3. Instalar Pig
+RUN wget https://downloads.apache.org/pig/pig-0.17.0/pig-0.17.0.tar.gz && \
+    tar -xzf pig-0.17.0.tar.gz && \
+    mv pig-0.17.0 /opt/pig && \
+    rm pig-0.17.0.tar.gz
+
+# 3.1 Configurar entorno Pig
+ENV PIG_HOME=/opt/pig
+ENV PATH=$PATH:$PIG_HOME/bin
+
+# 4. Copiar archivos de configuración de Hadoop
+COPY config/core-site.xml $HADOOP_CONF_DIR/
+COPY config/hdfs-site.xml $HADOOP_CONF_DIR/
+
+# 5. Instala solo las dependencias necesarias
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+CMD ["tail", "-f", "/dev/null"]
