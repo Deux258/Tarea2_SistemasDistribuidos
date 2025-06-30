@@ -96,20 +96,23 @@ $HADOOP_HOME/bin/hdfs dfs -ls $HDFS_INPUT/$HDFS_FILE
 echo "Iniciando JobHistory Server..."
 $HADOOP_HOME/sbin/mr-jobhistory-daemon.sh start historyserver
 
+# Crear el directorio local de salida si no existe
+mkdir -p /output
+
 # Ejecutar script Pig - este es el procesamiento de los datos
 echo "🐷 Ejecutando script Pig para filtrar los datos..."
 $PIG_HOME/bin/pig -f $PIG_SCRIPT
 
-echo "✓ Procesamiento completado. Archivo filtrado en /input/cleaned_records"
+echo "Subiendo cleaned_records al HDFS..."
+$HADOOP_HOME/bin/hdfs dfs -rm -r /input/cleaned_records
+$HADOOP_HOME/bin/hdfs dfs -put /output/cleaned_records /input/
+$HADOOP_HOME/bin/hdfs dfs -ls /input/cleaned_records
 
-# Ejecutar segundo script Pig - acá es el análisis de los datos
-echo "🐷 Ejecutando el segundo script Pig para el procesamiento de los datos"
+echo "🐷 Ejecutando segundo script Pig para el procesamiento de los datos"
 sleep 5
 $PIG_HOME/bin/pig -f $PIG_SCRIPT2
 
-# acá se hace cat de los outputs de Pig
 echo "Se inicia el cat de los outputs de Pig"
-
 echo "Resultados del primer script Pig (filtrado y homogeneización):"
 cat /output/cleaned_records/part-r-00000
 sleep 5
@@ -135,9 +138,4 @@ echo "Ahora el analisis por tipo de alerta y comuna"
 cat /output/analysis_by_type_city/part-r-00000
 sleep 5
 
-# Mantener contenedor activo - esto para poder ver el output mas que nada
-# echo "✓ Procesamiento completado. Contenedor activo..."
-# tail -f /dev/null ----> esto para mantener el contenedor activo
-
-# Finalizar el contenedor
 echo "✓ Procesamiento completado. Contenedor finalizado."
