@@ -166,10 +166,11 @@ services:
     networks:
       - trafico-network
     depends_on:
-      kibana:
-        condition: service_healthy
-      elasticsearch:
-        condition: service_healthy
+      #kibana:
+      #  condition: service_healthy
+      #elasticsearch:
+      #  condition: service_healthy
+      - mongo-exporter
     volumes:
       - ./data-storage/data:/data
     environment:
@@ -179,6 +180,17 @@ services:
       - ES_INDEX_2=processed_data
       - CSV_PATH_1=/data/eventos_waze.csv
     restart: "no"
+
+  hadoop-pig:
+    build: ./hadoop-pig
+    container_name: hadoop-pig
+    volumes:
+      - ./data-storage/data:/data
+      - ./hadoop-pig/scripts:/scripts
+    networks:
+      - redisn
+    depends_on:
+      - mongo-exporter
 
 volumes:
   mongo_data:

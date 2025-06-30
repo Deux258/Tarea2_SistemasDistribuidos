@@ -4,6 +4,7 @@ from pymongo import MongoClient
 import os
 import json
 from datetime import datetime
+from elasticsearch import Elasticsearch
 
 # Inicialización de la aplicación Flask
 app = Flask(__name__)
