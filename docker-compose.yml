@@ -42,11 +42,11 @@ services:
     depends_on:
       - mongo
     volumes:
-      - ./data:/data
+      - ./data-storage/data:/data
     environment:
       - MONGO_HOST=mongo
       - MONGO_DB=waze_db
-      - MONGO_COLLECTION=alertas
+      - MONGO_COLLECTION=eventos
       - MONGO_USER=admin
       - MONGO_PASS=admin
 
@@ -129,41 +129,21 @@ services:
     container_name: kibana
     environment:
       - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - XPACK_SECURITY_ENABLED=false
     ports:
       - "5601:5601"
     depends_on:
       - elasticsearch
     networks:
       - trafico-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:5601 | grep -q '<title>Kibana</title>'"]
+      interval: 10s
+      timeout: 10s
+      retries: 120
 
-  # Importador de datos a Elasticsearch (se ejecuta después del scraper)
-  elastic:
-    build:
-      context: ./elastic
-      dockerfile: Dockerfile
-    container_name: waze-elastic
-    volumes:
-      - ./elastic:/app/elastic
-    networks:
-      - trafico-network
-      - redisn
-    depends_on:
-      - elasticsearch
-      - kibana
-      - mongo
-      - waze-data-collector  # Importante: espera a que termine el scraper
-    restart: "no"  # Solo ejecutar una vez después del scraper
 
-  # Servicio para el generador de tráfico
-  # traffic-generator:
-  #   build: ./traffic-generator
-  #   container_name: traffic-generator
-  #   depends_on:
-  #     - mongo
-  #     - redis
-  #   networks:
-  #     - redisn
-  #   restart: always
+  
 
   # Servicio para el sistema de caché
   query-cache:
@@ -179,8 +159,26 @@ services:
     depends_on:
       - redis
       - mongo  
-      - elastic
-        #condition: service_healthy  # Espera a que Elasticsearch esté saludable (o listo)
+
+  csv_loader_elastic:
+    build: ./csv-loader-elastic
+    container_name: csv_loader_elastic
+    networks:
+      - trafico-network
+    depends_on:
+      kibana:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    volumes:
+      - ./data-storage/data:/data
+    environment:
+      - ES_HOST=elasticsearch
+      - ES_PORT=9200
+      - ES_INDEX_1=raw_data
+      - ES_INDEX_2=processed_data
+      - CSV_PATH_1=/data/eventos_waze.csv
+    restart: "no"
 
 volumes:
   mongo_data:

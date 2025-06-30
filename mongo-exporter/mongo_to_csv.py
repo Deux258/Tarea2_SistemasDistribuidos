@@ -13,32 +13,26 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[logging.StreamHandler(sys.stdout)]
 )
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("mongo_to_csv")
 
-mongo_host = os.getenv("MONGO_HOST", "mongo")
-mongo_db = os.getenv("MONGO_DB", "waze_db")
-mongo_collection = os.getenv("MONGO_COLLECTION", "eventos")
-mongo_user = os.getenv("MONGO_USER", "admin")
-mongo_pass = os.getenv("MONGO_PASS", "admin")
+# Parámetros de conexión
+MONGO_HOST = os.getenv("MONGO_HOST", "mongo")
+MONGO_DB = os.getenv("MONGO_DB", "waze_db")
+MONGO_COLLECTION = os.getenv("MONGO_COLLECTION", "eventos")
+MONGO_USER = os.getenv("MONGO_USER", "admin")
+MONGO_PASS = os.getenv("MONGO_PASS", "admin")
 
-#client = MongoClient("mongodb://admin:admin@mongo:27017/waze_db?authSource=admin")
-#db = client["waze_db"]
-#collection = db["eventos"]
+CSV_PATH = "/data/eventos_waze.csv"
+MAX_RETRIES = 10
+RETRY_DELAY = 60
 
-MAX_RETRIES = 10  # Número máximo de reintentos
-RETRY_DELAY = 60  # Segundos entre reintentos
-
-def connect_to_mongo():
-    """Establece conexión con MongoDB con manejo de errores"""
-    try:
-        mongo_uri = f"mongodb://{mongo_user}:{mongo_pass}@{mongo_host}:27017/?authSource=admin&serverSelectionTimeoutMS=5000"
-        client = MongoClient(mongo_uri, connectTimeoutMS=20000, socketTimeoutMS=None)
-        client.admin.command('ping')
-        logger.info("✅ Conexión a MongoDB establecida correctamente")
-        return client
-    except Exception as e:
-        logger.error(f"⚠️ Error conectando a MongoDB: {str(e)}")
-        return None
+FIELDS = [
+    'uuid', 'type', 'city', 'street', 'speed', 'reliability', 'confidence', 'country',
+    'reportRating', 'pubMillis', 'additionalInfo', 'fromNodeId', 'id', 'inscale',
+    'magvar', 'nComments', 'nThumbsUp', 'nearBy', 'provider', 'providerId', 'reportBy',
+    'reportByMunicipalityUser', 'reportDescription', 'reportMood', 'roadType', 'subtype',
+    'toNodeId'
+]
 
 def normalize_field(value):
     if value is None:
@@ -51,83 +45,62 @@ def normalize_field(value):
         return value.isoformat()
     return str(value).replace('"', '""').replace('\n', ' ').replace('\r', '')
 
-def export_to_csv():
-    retry_count = 0
+def connect_to_mongo():
+    uri = f"mongodb://{MONGO_USER}:{MONGO_PASS}@{MONGO_HOST}:27017/?authSource=admin&serverSelectionTimeoutMS=5000"
+    try:
+        client = MongoClient(uri, connectTimeoutMS=20000, socketTimeoutMS=None)
+        client.admin.command('ping')
+        logger.info("✅ Conexión a MongoDB exitosa.")
+        return client
+    except Exception as e:
+        logger.error(f"❌ No se pudo conectar a MongoDB: {e}")
+        return None
 
-    fieldnames = [
-        'uuid', 'type', 'city', 'street', 'speed', 'reliability', 'confidence', 'country',
-        'reportRating', 'pubMillis', 'additionalInfo', 'fromNodeId', 'id', 'inscale',
-        'magvar', 'nComments', 'nThumbsUp', 'nearBy', 'provider', 'providerId', 'reportBy',
-        'reportByMunicipalityUser', 'reportDescription', 'reportMood', 'roadType', 'subtype',
-        'toNodeId'
-    ]
-
-    while retry_count < MAX_RETRIES:
-        client = None
+def export_eventos_to_csv():
+    logger.info("🚦 Iniciando exportación de eventos desde MongoDB a CSV...")
+    retries = 0
+    while retries < MAX_RETRIES:
+        client = connect_to_mongo()
+        if not client:
+            logger.warning(f"Reintentando conexión en {RETRY_DELAY} segundos...")
+            time.sleep(RETRY_DELAY)
+            retries += 1
+            continue
         try:
-            logger.info(f"🔍 Intento {retry_count + 1}/{MAX_RETRIES}")
-
-            client = connect_to_mongo()
-            if client is None:
-                raise ConnectionError("No se pudo conectar a MongoDB")
-
-            db = client[mongo_db]
-            collection = db[mongo_collection]
-
-            count = collection.count_documents({})
-            logger.info(f"📊 Documentos encontrados en MongoDB: {count}")
-
-            if count == 0:
-                logger.warning(f"⚠️ No hay datos en MongoDB. Reintentando en {RETRY_DELAY} segundos...")
+            db = client[MONGO_DB]
+            collection = db[MONGO_COLLECTION]
+            total = collection.count_documents({})
+            logger.info(f"🔎 Total de documentos en la colección '{MONGO_COLLECTION}': {total}")
+            if total == 0:
+                logger.warning(f"⚠️ No hay datos para exportar. Reintentando en {RETRY_DELAY} segundos...")
                 time.sleep(RETRY_DELAY)
-                retry_count += 1
+                retries += 1
                 continue
-
-            data = list(collection.find({}, {"_id": 0}))
-
-            csv_path = "/data/datos_clean.csv"
-            with open(csv_path, "w", newline="", encoding="utf-8") as csvfile:
+            eventos = list(collection.find({}, {"_id": 0}))
+            logger.info(f"📥 Extrayendo {len(eventos)} eventos...")
+            with open(CSV_PATH, "w", newline="", encoding="utf-8") as csvfile:
                 writer = csv.writer(csvfile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-                # writer.writerow(fieldnames) acá le saqué el encabezado
-                for row in data:
-                    try:
-                        csv_row = []
-                        for field in fieldnames:
-                            value = row.get(field)
-                            csv_row.append(normalize_field(value))
-                        writer.writerow(csv_row)
-                    except Exception as e:
-                        logger.error(f"⚠️ Error procesando fila: {e}")
-                        continue
-
-            logger.info(f"✅ CSV generado exitosamente en {csv_path}")
-            logger.info(f"📊 Registros exportados: {len(data)}")
-
-            if os.path.exists(csv_path) and os.path.getsize(csv_path) > 0:
-                logger.info("✔️ Verificación: Archivo CSV creado correctamente")
-                return True
-            else:
-                raise Exception("El archivo CSV no se creó correctamente")
-
+                writer.writerow(FIELDS)
+                for evento in eventos:
+                    row = [normalize_field(evento.get(field)) for field in FIELDS]
+                    writer.writerow(row)
+            logger.info(f"✅ Archivo CSV generado exitosamente en {CSV_PATH}")
+            logger.info(f"📊 Total de registros exportados: {len(eventos)}")
+            return True
         except Exception as e:
-            logger.error(f"⚠️ Error durante la exportación: {str(e)}")
-            retry_count += 1
-            if retry_count < MAX_RETRIES:
-                logger.info(f"🔄 Reintentando en {RETRY_DELAY} segundos...")
-                time.sleep(RETRY_DELAY)
-            else:
-                logger.error(f"❌ Error: No se pudieron obtener datos después de {MAX_RETRIES} intentos")
+            logger.error(f"❌ Error durante la exportación: {e}")
+            retries += 1
+            logger.info(f"Reintentando en {RETRY_DELAY} segundos...")
+            time.sleep(RETRY_DELAY)
         finally:
             if client:
                 client.close()
-
+    logger.error("💥 Fallo crítico: No se pudo exportar la colección después de varios intentos.")
     return False
 
 if __name__ == "__main__":
-    logger.info("🚀 Iniciando script de exportación MongoDB a CSV")
-    if export_to_csv():
-        logger.info("🎉 Exportación completada con éxito")
-        time.sleep(300)  # 5 minutos para inspección
+    exito = export_eventos_to_csv()
+    if exito:
+        logger.info("🎉 Proceso de exportación finalizado con éxito.")
     else:
-        logger.error("💥 Fallo crítico en la exportación")
-        time.sleep(600)  # 10 minutos para depuración
+        logger.error("🚨 El proceso de exportación falló.")
