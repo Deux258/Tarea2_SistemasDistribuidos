@@ -6,6 +6,7 @@ WORKDIR /usr/src/app
 
 # Copiar archivos necesarios
 COPY requirements.txt .
+COPY cache.py .
 
 # Instalar dependencias
 RUN pip install --no-cache-dir -r requirements.txt

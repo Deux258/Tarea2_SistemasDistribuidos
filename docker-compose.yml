@@ -69,14 +69,15 @@ services:
   # Filtro con Pig
   pig-filter:
     build: ./pig-filter
+    platform: linux/amd64
     container_name: pig-filter
     volumes:
       - ./data-storage/data:/data
       - ./pig-filter:/scripts
-    depends_on:
-      - mongo
+  
     networks:
       - redisn
+
 
 
   # Servicio para la interfaz de administración de Redis
