@@ -1,5 +1,3 @@
-#!/bin/bash
-
 # Configuración de las env
 HADOOP_HOME=/opt/hadoop
 PIG_HOME=/opt/pig
@@ -11,21 +9,33 @@ PIG_SCRIPT2=/scripts/procesar_eventos.pig
 CSV_FILE=eventos_waze.csv
 HDFS_FILE=waze_data.csv
 
+
 # Iniciar servicios SSH y Hadoop
-echo "⚙️ Iniciando servicios..."
-echo "Iniciando SSH..."
-service ssh start
+# echo "⚙️ Iniciando servicios..."
+# echo "Iniciando SSH..."
+# service ssh start
+
+echo "esperando señal para iniciar el proceso..."
+python3 /scripts/receptor.py 
+
+echo "Exportando datos desde MongoDB..."
+mongoexport --uri="mongodb://admin:admin@mongo:27017/waze_db?authSource=admin" --collection=eventos --out=/data/eventos.json --jsonArray
+
 
 echo "Verificando si es necesario formatear NameNode "
 if [ ! -d "$HADOOP_HOME/data/namenode/current" ]; then
     $HADOOP_HOME/bin/hdfs namenode -format -force
 fi
 
-ssh-keyscan -H localhost >> ~/.ssh/known_hosts 2>/dev/null
-ssh-keyscan -H 0.0.0.0 >> ~/.ssh/known_hosts 2>/dev/null
+# ssh-keyscan -H localhost >> ~/.ssh/known_hosts 2>/dev/null
+# ssh-keyscan -H 0.0.0.0 >> ~/.ssh/known_hosts 2>/dev/null
 
-echo "Iniciando HDFS (start-dfs.sh)..."
-$HADOOP_HOME/sbin/start-dfs.sh
+# echo "Iniciando HDFS (start-dfs.sh)..."
+# $HADOOP_HOME/sbin/start-dfs.sh
+
+echo "Importando resultados filtrados a la base de datos waze_filtered..."
+mongoimport --uri="mongodb://admin:admin@mongo:27017/waze_filtered?authSource=admin" --collection=eventos_filtrados --file=/data/eventos_filtrados --type=csv --headerline
+
 
 echo "Iniciando YARN (start-yarn.sh)..."
 $HADOOP_HOME/sbin/start-yarn.sh

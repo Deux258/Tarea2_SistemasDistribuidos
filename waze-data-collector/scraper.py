@@ -1,6 +1,7 @@
 import random
 import time
 import json
+import socket
 import os
 from seleniumwire import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -17,7 +18,7 @@ if USE_PYAUTOGUI:
 WAZE_MAP_URL = "https://www.waze.com/es-419/live-map/"
 CHROMEDRIVER_PATH = "/usr/bin/chromedriver"
 PIXELS_PER_MOVE = 300
-MAX_EVENTOS = 100
+MAX_EVENTOS = 1000
 
 # Direcciones de movimiento del mapa
 DIRECCIONES_MAPA = {
@@ -82,10 +83,22 @@ def verificar_eventos_existentes():
         
         count = collection.count_documents({})
         print(f"📊 Se encontraron {count} eventos en la base de datos.")
+        notificar_pig_filter()
         return count
     except Exception as e:
         print(f"❌ Error al verificar eventos existentes: {e}")
         exit(1)
+
+def notificar_pig_filter():
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # Usa el nombre del servicio pig-filter y el puerto que escucha el receptor (por ejemplo, 5000)
+        s.connect(("pig-filter", 5000))
+        s.sendall(b"start")
+        s.close()
+        print("📨 Notificación enviada a pig-filter.")
+    except Exception as e:
+        print(f"❌ Error al notificar a pig-filter: {e}")
 
 def recolectar_eventos():
     # Verificar eventos existentes antes de comenzar
@@ -156,6 +169,7 @@ def recolectar_eventos():
     driver.quit()
     print(f"✅ Total de eventos únicos recolectados: {len(eventos_unicos)}")
     guardar_eventos_mongodb(list(eventos_unicos.values()))
+    notificar_pig_filter()
     print("✅ Navegación finalizada.")
 
 if __name__ == "__main__":
