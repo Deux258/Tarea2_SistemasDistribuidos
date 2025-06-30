@@ -17,7 +17,7 @@ if USE_PYAUTOGUI:
 WAZE_MAP_URL = "https://www.waze.com/es-419/live-map/"
 CHROMEDRIVER_PATH = "/usr/bin/chromedriver"
 PIXELS_PER_MOVE = 300
-MAX_EVENTOS = 100
+MAX_EVENTOS = 100000
 
 # Direcciones de movimiento del mapa
 DIRECCIONES_MAPA = {
@@ -27,7 +27,7 @@ DIRECCIONES_MAPA = {
     "derecha": (PIXELS_PER_MOVE, 0),
 }
 
-def analizar_solicitudes_red(driver, eventos):
+def analizar_solicitudes_red(driver, eventos_unicos):
     print("📡 Analizando solicitudes de red...")
     for request in driver.requests:
         if request.response and request.url.split('?')[0].endswith("georss"):
@@ -37,10 +37,12 @@ def analizar_solicitudes_red(driver, eventos):
                 if 'alerts' in data:
                     for evento in data['alerts']:
                         evento.pop('comments', None)
-                        eventos.append(evento)
-                        if len(eventos) >= MAX_EVENTOS:
-                            print("🚨 Se alcanzó el límite de 100 mil eventos.")
-                            return True
+                        uuid = evento.get('uuid')
+                        if uuid and uuid not in eventos_unicos:
+                            eventos_unicos[uuid] = evento
+                            if len(eventos_unicos) >= MAX_EVENTOS:
+                                print(f"🚨 Se alcanzó el límite de {MAX_EVENTOS} eventos únicos.")
+                                return True
             except Exception as e:
                 print(f"⚠️ Error al procesar respuesta: {e}")
     return False
@@ -126,11 +128,11 @@ def recolectar_eventos():
     except Exception as e:
         print(f"⚠️ Error al hacer zoom: {e}")
 
-    eventos = []
+    eventos_unicos = {}
     print("🔄 Iniciando movimientos aleatorios del mapa...")
 
     # Recolectar eventos moviendo el mapa
-    while len(eventos) < (MAX_EVENTOS):
+    while len(eventos_unicos) < MAX_EVENTOS:
         direccion = random.choice(list(DIRECCIONES_MAPA.keys()))
         dx, dy = DIRECCIONES_MAPA[direccion]
 
@@ -146,13 +148,14 @@ def recolectar_eventos():
                 print(f"🧭 (Simulado) Movimiento hacia: {direccion}")
                 time.sleep(1)
 
-            if analizar_solicitudes_red(driver, eventos):
+            if analizar_solicitudes_red(driver, eventos_unicos):
                 break
         except Exception as e:
             print(f"⚠️ Error al mover el mapa: {e}")
 
     driver.quit()
-    guardar_eventos_mongodb(eventos)
+    print(f"✅ Total de eventos únicos recolectados: {len(eventos_unicos)}")
+    guardar_eventos_mongodb(list(eventos_unicos.values()))
     print("✅ Navegación finalizada.")
 
 if __name__ == "__main__":

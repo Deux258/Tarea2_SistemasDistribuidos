@@ -15,6 +15,26 @@ logging.getLogger('elasticsearch').setLevel(logging.WARNING)
 logging.getLogger('urllib3').setLevel(logging.WARNING)
 logging.getLogger('elastic_transport').setLevel(logging.WARNING)
 
+def contar_eventos_unicos_mongo(collection):
+    # Contar eventos únicos por uuid en MongoDB
+    return len(collection.distinct('uuid'))
+
+def contar_eventos_unicos_elastic(es, index_name):
+    # Contar eventos únicos por uuid en Elasticsearch
+    try:
+        body = {
+            "size": 0,
+            "aggs": {
+                "unique_uuids": {
+                    "cardinality": {"field": "uuid.keyword"}
+                }
+            }
+        }
+        res = es.search(index=index_name, body=body)
+        return res['aggregations']['unique_uuids']['value']
+    except Exception:
+        return 0
+
 def sync_waze_to_elastic():
     """Función principal que sincroniza datos de MongoDB a Elasticsearch"""
     
@@ -37,6 +57,10 @@ def sync_waze_to_elastic():
             logger.info("ℹ️ No hay eventos para procesar")
             return
             
+        # Contar eventos únicos en MongoDB
+        total_unicos_mongo = contar_eventos_unicos_mongo(collection)
+        logger.info(f"🔢 Eventos únicos en MongoDB: {total_unicos_mongo}")
+        
     except Exception as e:
         logger.error(f"❌ Error conectando a MongoDB: {e}")
         return
@@ -112,6 +136,13 @@ def sync_waze_to_elastic():
         else:
             logger.info("ℹ️ El índice ya existe")
             
+        # Contar eventos únicos en Elasticsearch
+        total_unicos_elastic = contar_eventos_unicos_elastic(es, index_name)
+        logger.info(f"🔢 Eventos únicos en Elasticsearch: {total_unicos_elastic}")
+        if total_unicos_elastic >= total_unicos_mongo:
+            logger.info("✅ Todos los eventos ya están importados en Elasticsearch. No es necesario importar.")
+            return
+            
     except Exception as e:
         logger.error(f"❌ Error creando índice: {e}")
         return
@@ -146,7 +177,7 @@ def sync_waze_to_elastic():
                 )
                 
                 # Solo mostrar progreso cada 100 eventos
-                if (i + 1) % 100 == 0:
+                if (i + 1) % 1000 == 0:
                     logger.info(f"📤 Procesados {i + 1}/{len(eventos)} eventos")
                     
             except Exception as e:
