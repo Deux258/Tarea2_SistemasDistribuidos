@@ -34,6 +34,22 @@ services:
     networks:
       - redisn
 
+  mongo-exporter:
+    build: ./mongo-exporter
+    container_name: mongo_exporter
+    networks:
+      - redisn
+    depends_on:
+      - mongo
+    volumes:
+      - ./data:/data
+    environment:
+      - MONGO_HOST=mongo
+      - MONGO_DB=waze_db
+      - MONGO_COLLECTION=alertas
+      - MONGO_USER=admin
+      - MONGO_PASS=admin
+
   # Servicio para la interfaz de administración de MongoDB
   mongo-express:
     image: mongo-express:latest
@@ -139,30 +155,32 @@ services:
     restart: "no"  # Solo ejecutar una vez después del scraper
 
   # Servicio para el generador de tráfico
-  traffic-generator:
-    build: ./traffic-generator
-    container_name: traffic-generator
-    depends_on:
-      - mongo
-      - redis
-    networks:
-      - redisn
-    restart: always
+  # traffic-generator:
+  #   build: ./traffic-generator
+  #   container_name: traffic-generator
+  #   depends_on:
+  #     - mongo
+  #     - redis
+  #   networks:
+  #     - redisn
+  #   restart: always
 
   # Servicio para el sistema de caché
   query-cache:
     build: ./query-cache
     container_name: query-cache
-    restart: always
+    restart: "no"
     ports:
       - "5000:5000"
     networks:
       - redisn
     volumes:
-      - ./query-cache:/app
+      - ./query-cache:/usr/src/app
     depends_on:
       - redis
-      - mongo
+      - mongo  
+      - elastic
+        #condition: service_healthy  # Espera a que Elasticsearch esté saludable (o listo)
 
 volumes:
   mongo_data:

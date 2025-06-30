@@ -169,7 +169,7 @@ def sync_waze_to_elastic():
             try:
                 es.index(
                     index=index_name,
-                    id=evento.get('uuid', None),
+                    #id=evento.get('uuid', None),
                     body=evento,
                     # Configuración para reducir logs
                     request_timeout=10,

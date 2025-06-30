@@ -17,7 +17,7 @@ if USE_PYAUTOGUI:
 WAZE_MAP_URL = "https://www.waze.com/es-419/live-map/"
 CHROMEDRIVER_PATH = "/usr/bin/chromedriver"
 PIXELS_PER_MOVE = 300
-MAX_EVENTOS = 100000
+MAX_EVENTOS = 100
 
 # Direcciones de movimiento del mapa
 DIRECCIONES_MAPA = {
@@ -76,7 +76,7 @@ def guardar_eventos_mongodb(eventos):
 def verificar_eventos_existentes():
     try:
         print("🔍 Verificando eventos existentes en MongoDB...")
-        client = MongoClient("mongodb://admin:admin3@mongo:27017/waze_db?authSource=admin")
+        client = MongoClient("mongodb://admin:admin@mongo:27017/waze_db?authSource=admin")
         db = client["waze_db"]
         collection = db["eventos"]
         
@@ -85,7 +85,7 @@ def verificar_eventos_existentes():
         return count
     except Exception as e:
         print(f"❌ Error al verificar eventos existentes: {e}")
-        return 0
+        exit(1)
 
 def recolectar_eventos():
     # Verificar eventos existentes antes de comenzar
