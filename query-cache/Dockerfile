@@ -5,7 +5,6 @@ FROM python:3.9-slim
 WORKDIR /usr/src/app
 
 # Copiar archivos necesarios
-COPY cache.py .
 COPY requirements.txt .
 
 # Instalar dependencias

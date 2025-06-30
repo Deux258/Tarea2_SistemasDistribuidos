@@ -1,7 +1,9 @@
-version: "3.8"
+#version: "3.8"
 
 networks:
   redisn:
+    driver: bridge
+  trafico-network:
     driver: bridge
 
 services:
@@ -11,10 +13,12 @@ services:
     container_name: waze-data-collector
     networks:
       - redisn
+      - trafico-network
     volumes:
       - ./waze-data-collector:/app
-    #depends_on:
-    #  - mongo
+    depends_on:
+      - mongo
+    restart: "no"  # No reiniciar automáticamente, solo ejecutar una vez
 
   # Servicio para MongoDB
   mongo:
@@ -89,31 +93,76 @@ services:
     depends_on:
       - redis
 
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - xpack.security.transport.ssl.enabled=false
+      - ES_JAVA_OPTS=-Xms1g -Xmx1g
+    ports:
+      - "9200:9200"
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+    networks:
+      - trafico-network
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.13.4
+    container_name: kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+    depends_on:
+      - elasticsearch
+    networks:
+      - trafico-network
+
+  # Importador de datos a Elasticsearch (se ejecuta después del scraper)
+  elastic:
+    build:
+      context: ./elastic
+      dockerfile: Dockerfile
+    container_name: waze-elastic
+    volumes:
+      - ./elastic:/app/elastic
+    networks:
+      - trafico-network
+      - redisn
+    depends_on:
+      - elasticsearch
+      - kibana
+      - mongo
+      - waze-data-collector  # Importante: espera a que termine el scraper
+    restart: "no"  # Solo ejecutar una vez después del scraper
+
   # Servicio para el generador de tráfico
-  # traffic-generator:
-  #   build: ./traffic-generator
-  #   container_name: traffic-generator
-  #   depends_on:
-  #     - mongo
-  #     - redis
-  #   networks:
-  #     - redisn
-  #   restart: always
+  traffic-generator:
+    build: ./traffic-generator
+    container_name: traffic-generator
+    depends_on:
+      - mongo
+      - redis
+    networks:
+      - redisn
+    restart: always
 
   # Servicio para el sistema de caché
-  # query-cache:
-  #   build: ./query-cache
-  #   container_name: query-cache
-  #   restart: always
-  #   ports:
-  #     - "5000:5000"
-  #   networks:
-  #     - redisn
-  #   volumes:
-  #     - ./query-cache:/app
-  #   depends_on:
-  #     - redis
-  #     - mongo
+  query-cache:
+    build: ./query-cache
+    container_name: query-cache
+    restart: always
+    ports:
+      - "5000:5000"
+    networks:
+      - redisn
+    volumes:
+      - ./query-cache:/app
+    depends_on:
+      - redis
+      - mongo
 
 volumes:
   mongo_data:
@@ -121,6 +170,8 @@ volumes:
   redis_data_1:
     driver: local
   redis-insight:
+  esdata:
+    driver: local
 
 
 

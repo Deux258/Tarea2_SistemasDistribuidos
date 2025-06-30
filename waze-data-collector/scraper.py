@@ -17,7 +17,7 @@ if USE_PYAUTOGUI:
 WAZE_MAP_URL = "https://www.waze.com/es-419/live-map/"
 CHROMEDRIVER_PATH = "/usr/bin/chromedriver"
 PIXELS_PER_MOVE = 300
-MAX_EVENTOS = 100000
+MAX_EVENTOS = 100
 
 # Direcciones de movimiento del mapa
 DIRECCIONES_MAPA = {
