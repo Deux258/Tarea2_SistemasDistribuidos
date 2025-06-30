@@ -19,8 +19,28 @@ fieldnames = [
     "roadType", "subtype", "toNodeId"
 ]
 
-# Conexión a Elasticsearch usando el mismo método que waze_elastic.py
+# Esperar a que Elasticsearch esté disponible
+def wait_for_elasticsearch(es_url, timeout=120, interval=5):
+    import requests
+    start = time.time()
+    while True:
+        try:
+            r = requests.get(es_url)
+            if r.status_code == 200:
+                print(f"✅ Elasticsearch disponible en {es_url}")
+                return
+        except Exception:
+            pass
+        if time.time() - start > timeout:
+            print(f"❌ Elasticsearch no disponible después de {timeout} segundos en {es_url}")
+            sys.exit(1)
+        print(f"⏳ Esperando Elasticsearch en {es_url}...")
+        time.sleep(interval)
+
 es_url = f"http://{es_host}:{es_port}"
+wait_for_elasticsearch(es_url)
+
+# Conexión a Elasticsearch usando el mismo método que waze_elastic.py
 try:
     es = Elasticsearch(
         es_url,
