@@ -73,7 +73,6 @@ docker-compose up --build
 └── README.md
 ```
 
-NOTA: Hay más carpetas pero estas son las principales a usar para la tarea 2 (el resto pertenecen a la Tarea 1).
 
 ## Uso del Sistema
 
@@ -83,6 +82,6 @@ docker-compose up --build
 ```
 
 2. **Consultar Resultados**:
-Los resultados procesados estarán disponibles en la base de datos MongoDB y pueden ser consultados a través de la API o directamente desde la base de datos.
+Los resultados procesados estarán disponibles en la base de datos MongoDB, Elastic Kibana y pueden ser consultados a través de la API o directamente desde la base de datos.
 
 
