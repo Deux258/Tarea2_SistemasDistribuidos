@@ -1,6 +1,6 @@
 # Sistema de Procesamiento de Eventos de Tráfico Waze
 
-## Arquitectura del Sistema Tarea 2
+## Arquitectura del Sistema Tarea 3
 
 El sistema está compuesto por los siguientes módulos principales:
 
@@ -37,19 +37,6 @@ El sistema está compuesto por los siguientes módulos principales:
   - Análisis temporal de eventos
   - Implementación de caché para consultas frecuentes
 
-## Instalación y Configuración
-
-1. Para inicializar el proyecto, se ejecuta los dockers definidos en `docker-compose.yml`:
-```bash
-docker-compose up --build
-```
-
-2. Una vez inicializado, en los primeros minutos verá mezclado los distintos dockers hasta ejecutar `waze-data-collector` hasta subir a mongodb los 100 mil en 10 minutos aproximado.
-
-3. Si se requiere, puede visualizar la base de datos en http://localhost:8081 usando mongo express.
-
-4. Luego de esto, se ejecutará el filtrado con apache pig y luego el procesado con este mismo usando otro docker
-
 ## Estructura del Proyecto
 
 ```
@@ -73,6 +60,7 @@ docker-compose up --build
 └── README.md
 ```
 
+NOTA: Hay más carpetas pero estas son las principales a usar para la tarea 2 (el resto pertenecen a la Tarea 1).
 
 ## Uso del Sistema
 
@@ -82,6 +70,17 @@ docker-compose up --build
 ```
 
 2. **Consultar Resultados**:
-Los resultados procesados estarán disponibles en la base de datos MongoDB, Elastic Kibana y pueden ser consultados a través de la API o directamente desde la base de datos.
+Los resultados procesados estarán disponibles en la base de datos MongoDB y pueden ser consultados a través de la API o directamente desde la base de datos.
 
+3. Espera la carga y procesamiento de datos
+El servicio waze-data-collector recolectará y cargará los datos en MongoDB (esto puede tomar varios minutos).
+Una vez finalizada la carga, los módulos de filtrado y procesamiento ejecutarán los scripts de Apache Pig para limpiar y analizar los datos.
 
+4. ejecutar el modulo "csv_loader_elastic", esto creara el indice de datos en kibana
+
+5. ejecutar el modulo mongo_export
+
+5. Los datos procesados estarán disponibles en la base de datos MongoDB.
+Puedes acceder a Mongo Express en http://localhost:8081 para explorar la base de datos visualmente.
+También puedes consultar los datos usando la API (si está implementada) o conectándote directamente a MongoDB.
+Se puede acceder a elastic y kibana en http://localhost:5601 donde se obtendran los datos en la seccion discover bajo analitycs.
