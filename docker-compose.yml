@@ -13,11 +13,9 @@ services:
     container_name: waze-data-collector
     networks:
       - redisn
-      - trafico-network
+      #- trafico-network
     volumes:
-      - ./waze-data-collector:/app
-    depends_on:
-      - mongo
+      - ./waze-data-collector:/app      
     restart: "no"  # No reiniciar automáticamente, solo ejecutar una vez
 
   # Servicio para MongoDB
@@ -80,7 +78,9 @@ services:
       - redis_data_1:/bitnami/redis/data
     networks:
       - redisn
-    
+    depends_on:
+      - mongo
+      - waze-data-collector
 
   # Filtro con Pig
   pig-filter:
@@ -93,6 +93,10 @@ services:
   
     networks:
       - redisn
+    depends_on:
+      - mongo
+      - waze-data-collector
+      - mongo-exporter
 
   # Servicio para la interfaz de administración de Redis
   redis-admin:
@@ -163,6 +167,7 @@ services:
     depends_on:
       - redis
       - mongo  
+      - pig-filter
 
   csv_loader_elastic:
     build: ./csv-loader-elastic

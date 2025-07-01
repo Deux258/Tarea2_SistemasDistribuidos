@@ -18,7 +18,7 @@ if USE_PYAUTOGUI:
 WAZE_MAP_URL = "https://www.waze.com/es-419/live-map/"
 CHROMEDRIVER_PATH = "/usr/bin/chromedriver"
 PIXELS_PER_MOVE = 300
-MAX_EVENTOS = 1000
+MAX_EVENTOS = 100
 
 # Direcciones de movimiento del mapa
 DIRECCIONES_MAPA = {
@@ -109,7 +109,7 @@ def recolectar_eventos():
 
     driver = configurar_navegador()
     driver.get(WAZE_MAP_URL)
-    time.sleep(5)
+    time.sleep(2)
 
     # Manejar popup inicial si existe
     try:
@@ -129,15 +129,15 @@ def recolectar_eventos():
     else:
         center_x = center_y = 500
 
-    time.sleep(1)
+    time.sleep(0.5)
 
     # Ajustar zoom inicial
     try:
         print("🔍 Haciendo zoom al mapa...")
         zoom_in_button = driver.find_element(By.CLASS_NAME, "leaflet-control-zoom-in")
-        for _ in range(1):
+        for _ in range(0.5):
             zoom_in_button.click()
-            time.sleep(1)
+            time.sleep(0.5)
     except Exception as e:
         print(f"⚠️ Error al hacer zoom: {e}")
 
@@ -156,7 +156,7 @@ def recolectar_eventos():
                 pyautogui.mouseDown()
                 pyautogui.moveRel(dx, dy, duration=0.5)
                 pyautogui.mouseUp()
-                time.sleep(3)
+                time.sleep(2)
             else:
                 print(f"🧭 (Simulado) Movimiento hacia: {direccion}")
                 time.sleep(1)
