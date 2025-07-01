@@ -29,7 +29,7 @@ DIRECCIONES_MAPA = {
 }
 
 def analizar_solicitudes_red(driver, eventos_unicos):
-    print("📡 Analizando solicitudes de red...")
+    print("🔍 Escaneando tráfico de red en busca de eventos...")
     for request in driver.requests:
         if request.response and request.url.split('?')[0].endswith("georss"):
             try:
@@ -42,10 +42,10 @@ def analizar_solicitudes_red(driver, eventos_unicos):
                         if uuid and uuid not in eventos_unicos:
                             eventos_unicos[uuid] = evento
                             if len(eventos_unicos) >= MAX_EVENTOS:
-                                print(f"🚨 Se alcanzó el límite de {MAX_EVENTOS} eventos únicos.")
+                                print(f"🧨 Límite alcanzado: {MAX_EVENTOS} eventos recopilados.")
                                 return True
             except Exception as e:
-                print(f"⚠️ Error al procesar respuesta: {e}")
+                print(f"💥 Fallo al interpretar respuesta del servidor: {e}")
     return False
 
 def configurar_navegador():

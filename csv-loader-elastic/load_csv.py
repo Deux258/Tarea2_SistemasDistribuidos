@@ -76,7 +76,7 @@ if not es.indices.exists(index=index_name):
     es.indices.create(index=index_name)
     print(f"🆕 Índice '{index_name}' creado")
 else:
-    print(f"ℹ️ El índice '{index_name}' ya existe")
+    print(f"El índice '{index_name}' ya existe")
 
 # Cargar datos del CSV a Elasticsearch
 try:
