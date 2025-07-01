@@ -81,8 +81,8 @@ else:
 # Cargar datos del CSV a Elasticsearch
 try:
     with open(csv_path, 'r', encoding='utf-8') as f:
-        reader = csv.DictReader(f, fieldnames=fieldnames)
-        next(reader, None)  # Saltar encabezado
+        # Detectar encabezado automáticamente
+        reader = csv.DictReader(f)
         actions = []
         for row in reader:
             clean_row = {k: v for k, v in row.items() if k.strip() != ""}

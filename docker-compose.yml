@@ -94,8 +94,6 @@ services:
     networks:
       - redisn
 
-
-
   # Servicio para la interfaz de administración de Redis
   redis-admin:
     image: redislabs/redisinsight:latest
@@ -185,6 +183,47 @@ services:
       - ES_INDEX_2=processed_data
       - CSV_PATH_1=/data/eventos_waze.csv
     restart: "no"
+    
+  # csv-loader-raw:
+  #   build: ./csv-loader-elastic
+  #   container_name: csv_loader_raw
+  #   networks:
+  #     - trafico-network
+  #   depends_on:
+  #     kibana:
+  #       condition: service_healthy
+  #     elasticsearch:
+  #       condition: service_healthy
+  #   volumes:
+  #     - ./data-storage/data:/data
+  #   environment:
+  #     - ES_HOST=elasticsearch
+  #     - ES_PORT=9200
+  #     - ES_INDEX_1=raw_data
+  #     - CSV_PATH_1=/data/eventos_waze.csv
+  #   command: python load_csv.py
+  #   restart: "no"
+
+  csv-loader-filtered:
+    build: ./csv-loader-elastic
+    container_name: csv_loader_filtered
+    networks:
+      - trafico-network
+    depends_on:
+      kibana:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    volumes:
+      - ./data-storage/data:/data
+    environment:
+      - ES_HOST=elasticsearch
+      - ES_PORT=9200
+      - ES_INDEX_1=filtered_data
+      - CSV_PATH_1=/data/eventos_filtrados/part-r-00000
+    command: python load_csv.py
+    restart: "no"
+    
 
 volumes:
   mongo_data:
